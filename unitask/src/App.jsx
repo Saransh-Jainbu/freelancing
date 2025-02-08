@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Sparkles, Target, Clock, Shield, TrendingUp, Code, Briefcase, Users, BookOpen, Star, ChevronRight,
-  Twitter, Github, Linkedin, Instagram } from 'lucide-react';
+import { 
+  ArrowRight, Sparkles, Target, Clock, Shield, TrendingUp, 
+  Code, Briefcase, Users, BookOpen, Star, ChevronRight,
+  Twitter, Github, Linkedin, Instagram, Menu, X // Added Menu and X icons
+} from 'lucide-react';
 
 const LandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState({});
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -73,49 +77,86 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Enhanced Animated Background */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-600/10 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob" />
-        <div className="absolute top-0 -right-4 w-96 h-96 bg-blue-600/10 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-        <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-600/10 rounded-full mix-blend-screen filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-      </div>
-
-      {/* Navigation */}
+      
+     {/* Navigation */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-black/90 backdrop-blur-xl border-b border-white/5' : ''}`}>
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text hover:scale-105 transition-all cursor-pointer">
+            {/* Logo */}
+            <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
               student.dev
             </span>
-            <div className="hidden md:flex items-center gap-8 text-sm">
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-8">
+              {/* Nav Links */}
+              <div className="flex items-center gap-8 text-sm">
+                {['Services', 'About', 'Testimonials', 'Contact'].map((item) => (
+                  <a 
+                    key={item} 
+                    href="#" 
+                    className="relative group"
+                  >
+                    <span className="relative z-10 hover:text-purple-400 transition-colors duration-300">{item}</span>
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-purple-400 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                  </a>
+                ))}
+              </div>
+
+              {/* Desktop Auth Buttons */}
+              <div className="flex items-center gap-4">
+                <button className="group relative px-4 py-2 rounded-full overflow-hidden">
+                  <span className="relative z-10">Log In</span>
+                  <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-all transform scale-x-0 group-hover:scale-x-100 origin-left" />
+                </button>
+                <button className="relative px-4 py-2 rounded-full overflow-hidden group">
+                  <span className="relative z-10">Sign Up</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-lg hover:bg-white/5 transition-colors"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+
+          {/* Mobile Menu */}
+          <div 
+            className={`md:hidden absolute top-full left-0 w-full bg-black/95 backdrop-blur-xl border-b border-white/5 transition-all duration-300 ${
+              mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 invisible'
+            }`}
+          >
+            <div className="px-4 py-4 space-y-4">
               {['Services', 'About', 'Testimonials', 'Contact'].map((item) => (
                 <a 
                   key={item} 
                   href="#" 
-                  className="relative group"
+                  className="block py-2 hover:text-purple-400 transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span className="relative z-10 hover:text-purple-400 transition-colors duration-300">{item}</span>
-                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-purple-400 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                  {item}
                 </a>
               ))}
-            </div>
-            <div className="flex gap-4">
-              <button className="group relative px-6 py-2 rounded-full overflow-hidden">
-                <span className="relative z-10">Log In</span>
-                <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-all transform scale-x-0 group-hover:scale-x-100 origin-left" />
-              </button>
-              <button className="relative px-6 py-2 rounded-full overflow-hidden group">
-                <span className="relative z-10">Sign Up</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600" />
-              </button>
+              <div className="pt-4 border-t border-white/5 space-y-3">
+                <button className="w-full py-2 px-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
+                  Log In
+                </button>
+                <button className="w-full py-2 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity">
+                  Sign Up
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Enhanced Hero Section */}
       <div className="relative min-h-screen flex items-center justify-center px-4 pt-20">
         <div className="text-center max-w-4xl mx-auto">
           <div 
@@ -124,14 +165,16 @@ const LandingPage = () => {
             }`} 
             data-scroll="badge"
           >
-            <span className="px-6 py-3 rounded-full text-sm bg-white/5 border border-white/10 flex items-center gap-2 group hover:bg-white/10 transition-all">
+            <span className="px-4 sm:px-6 py-2 sm:py-3 rounded-full text-sm bg-white/5 border border-white/10 flex items-center gap-2 group hover:bg-white/10 transition-all">
               <Star className="w-4 h-4 text-yellow-500 group-hover:rotate-180 transition-transform duration-500" />
-              Join 10,000+ student freelancers
+              <span className="hidden sm:inline">Join 10,000+ student freelancers</span>
+              <span className="sm:hidden">10,000+ students</span>
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </span>
           </div>
+          
           <h1 
-            className={`text-5xl md:text-7xl font-bold mb-6 leading-tight transform transition-all duration-700 ${
+            className={`text-4xl sm:text-5xl md:text-7xl font-bold mb-6 leading-tight transform transition-all duration-700 px-4 ${
               isVisible.title ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
             }`} 
             data-scroll="title"
@@ -141,43 +184,44 @@ const LandingPage = () => {
               Income While Studying
             </span>
           </h1>
+
           <p 
-            className={`text-xl text-gray-400 mb-8 max-w-2xl mx-auto transform transition-all duration-700 delay-200 ${
+            className={`text-lg sm:text-xl text-gray-400 mb-8 max-w-2xl mx-auto px-4 transform transition-all duration-700 delay-200 ${
               isVisible.description ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
             }`} 
             data-scroll="description"
           >
             The ultimate platform for students to freelance, learn, and earn. Join a community of ambitious students turning their skills into success stories.
           </p>
+          {/* Enhanced Mobile CTA Buttons */}
           <div 
-        className={`flex flex-col md:flex-row items-center justify-center gap-4 transform transition-all duration-1000 ${
-          isVisible.buttons ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
-        }`} 
-        data-scroll="buttons"
-      >
-        <button className="group relative w-full md:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
-          <div className="relative z-50 flex items-center justify-center font-medium">
-            Start Earning Now
-            <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+            className={`flex flex-col sm:flex-row items-center justify-center gap-4 px-4 transform transition-all duration-1000 ${
+              isVisible.buttons ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+            }`} 
+            data-scroll="buttons"
+          >
+            <button className="w-full sm:w-auto px-6 sm:px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+              <div className="relative z-20 flex items-center justify-center font-medium">
+                Start Earning Now
+                <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+              </div>
+            </button>
+            <button className="w-full sm:w-auto px-6 sm:px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors relative group">
+              <span className="relative z-20 font-medium">Explore Platform</span>
+            </button>
           </div>
-        </button>
-        <button className="relative w-full md:w-auto px-8 py-4 rounded-full bg-transparent overflow-hidden group">
-          <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-all duration-500" />
-          <span className="relative z-20 font-medium">Explore Platform</span>
-        </button>
-      </div>
         </div>
       </div>
 
-      {/* Features Grid */}
-      <div className="py-20 px-4" data-scroll="features">
+       {/* Enhanced Features Grid */}
+       <div className="py-16 sm:py-20 px-4" data-scroll="features">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose Us?</h2>
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Why Choose Us?</h2>
             <div className="h-1 w-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto transform transition-all duration-500 hover:w-32" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {features.map((feature, index) => (
               <div 
                 key={index}
@@ -185,7 +229,7 @@ const LandingPage = () => {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
                 <feature.icon className="w-8 h-8 mb-4 text-purple-400 group-hover:scale-110 transition-transform" />
-                <h3 className="text-xl font-semibold mb-2 relative z-10">{feature.title}</h3>
+                <h3 className="text-lg sm:text-xl font-semibold mb-2 relative z-10">{feature.title}</h3>
                 <p className="text-gray-400 relative z-10">{feature.description}</p>
               </div>
             ))}
@@ -193,13 +237,13 @@ const LandingPage = () => {
         </div>
       </div>
 
-      {/* Services Cards */}
-      <div className="py-20 px-4" data-scroll="services">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+     {/* Enhanced Services Cards */}
+      <div className="py-16 sm:py-20 px-4" data-scroll="services">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {cards.map((card, index) => (
             <div 
               key={index}
-              className="group p-8 rounded-2xl bg-white/5 hover:bg-white/10 transition-all duration-500 hover:scale-105 border border-white/5 hover:border-white/10 relative overflow-hidden"
+              className="group p-6 sm:p-8 rounded-2xl bg-white/5 hover:bg-white/10 transition-all duration-500 hover:scale-105 border border-white/5 hover:border-white/10 relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5 transform -translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
               <div className="relative z-10">
@@ -211,7 +255,7 @@ const LandingPage = () => {
                     {card.rate}
                   </span>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{card.title}</h3>
+                <h3 className="text-lg sm:text-xl font-semibold mb-2">{card.title}</h3>
                 <p className="text-gray-400 mb-4">{card.description}</p>
                 <div className={`h-1 w-20 bg-gradient-to-r ${card.gradient} rounded-full group-hover:w-full transition-all duration-500`} />
               </div>
@@ -245,77 +289,76 @@ const LandingPage = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="py-16 px-4 border-t border-white/5">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+       {/* Enhanced Footer */}
+       <footer className="py-12 sm:py-16 px-4 border-t border-white/5">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand Column */}
           <div className="space-y-4">
-            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
+            <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
               student.dev
             </span>
             <p className="text-gray-400">Empowering students to turn their skills into successful careers.</p>
             <div className="flex gap-4">
-              {Object.entries(socialIcons).map(([name, Icon]) => (
-                <a 
-                  key={name}
-                  href="#"
-                  className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors group"
-                >
-                  <span className="sr-only">{name}</span>
-                  <Icon className="w-5 h-5 text-gray-400 group-hover:text-white group-hover:scale-110 transition-all duration-300" />
-                </a>
-              ))}
+              {['twitter', 'github', 'linkedin', 'instagram'].map((social) => {
+                const Icon = socialIcons[social];
+                return (
+                  <a 
+                    key={social}
+                    href="#"
+                    className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors group"
+                  >
+                    <span className="sr-only">{social}</span>
+                    <Icon className="w-5 h-5 text-gray-400 group-hover:text-white group-hover:scale-110 transition-all duration-300" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="font-semibold mb-4 text-lg">Quick Links</h3>
+          {/* Quick Links - Mobile Accordion Style */}
+          <div className="space-y-4 sm:space-y-2">
+            <h3 className="font-semibold text-lg">Quick Links</h3>
             <ul className="space-y-2">
               {['Find Work', 'Create Profile', 'Success Stories', 'Resources'].map((link) => (
                 <li key={link}>
-                  <a href="#" className="text-gray-400 hover:text-purple-400 transition-colors">{link}</a>
+                  <a href="#" className="text-gray-400 hover:text-purple-400 transition-colors block py-1">{link}</a>
                 </li>
               ))}
             </ul>
           </div>
-
-          {/* Resources */}
-          <div>
-            <h3 className="font-semibold mb-4 text-lg">Resources</h3>
+          <div className="space-y-4 sm:space-y-2">
+            <h3 className="font-semibold text-lg">Resources</h3>
             <ul className="space-y-2">
               {['Help Center', 'Blog', 'Tutorials', 'FAQ'].map((link) => (
                 <li key={link}>
-                  <a href="#" className="text-gray-400 hover:text-purple-400 transition-colors">{link}</a>
+                  <a href="#" className="text-gray-400 hover:text-purple-400 transition-colors block py-1">{link}</a>
                 </li>
               ))}
             </ul>
           </div>
-
-          {/* Newsletter */}
-          <div>
-            <h3 className="font-semibold mb-4 text-lg">Stay Updated</h3>
-            <p className="text-gray-400 mb-4">Get the latest opportunities and tips.</p>
-            <div className="flex gap-2">
+          {/* Newsletter - Enhanced Mobile Layout */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Stay Updated</h3>
+            <p className="text-gray-400">Get the latest opportunities and tips.</p>
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="bg-white/5 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 flex-grow border border-white/5 placeholder-gray-500"
+                className="flex-grow bg-white/5 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 border border-white/5 placeholder-gray-500"
               />
-              <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity">
+              <button className="py-2 px-6 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity whitespace-nowrap">
                 Join
               </button>
             </div>
           </div>
         </div>
-
         {/* Bottom Bar */}
-        <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-white/5">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-gray-500 text-sm">
+        <div className="max-w-7xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-white/5">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4">
+            <p className="text-gray-500 text-sm text-center sm:text-left">
               © 2025 student.dev. All rights reserved.
             </p>
-            <div className="flex gap-6">
+            <div className="flex flex-wrap justify-center sm:justify-end gap-4 sm:gap-6">
               {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((link) => (
                 <a 
                   key={link}
@@ -328,54 +371,67 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
+       {/* Mobile-specific Styles */}
+       <style jsx>{`
+          @media (max-width: 640px) {
+            .animate-gradient-x {
+              background-size: 300% auto;
+              animation-duration: 10s;
+            }
+            
+            .animate-blob {
+              animation-duration: 5s;
+            }
+          }
+        `}</style>
+
+        {/* Animation Keyframes */}
+        <style jsx>{`
+          @keyframes blob {
+            0% {
+              transform: translate(0px, 0px) scale(1);
+            }
+            33% {
+              transform: translate(30px, -50px) scale(1.1);
+            }
+            66% {
+              transform: translate(-20px, 20px) scale(0.9);
+            }
+            100% {
+              transform: translate(0px, 0px) scale(1);
+            }
+          }
+
+          .animate-blob {
+            animation: blob 7s infinite;
+          }
+
+          .animation-delay-2000 {
+            animation-delay: 2s;
+          }
+
+          .animation-delay-4000 {
+            animation-delay: 4s;
+          }
+
+          @keyframes gradient-x {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+
+          .animate-gradient-x {
+            animation: gradient-x 15s linear infinite;
+            background-size: 200% auto;
+          }
+        `}</style>
       </footer>
-
-      {/* Animation Styles */}
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-
-        @keyframes gradient-x {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-
-        .animate-gradient-x {
-          animation: gradient-x 15s linear infinite;
-          background-size: 200% auto;
-        }
-      `}</style>
     </div>
   );
 };
