@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Sparkles, Target, Clock, Shield, TrendingUp, Code, Briefcase, Users, BookOpen, Star, ChevronRight } from 'lucide-react';
+import { ArrowRight, Sparkles, Target, Clock, Shield, TrendingUp, Code, Briefcase, Users, BookOpen, Star, ChevronRight,
+  Twitter, Github, Linkedin, Instagram } from 'lucide-react';
 
 const LandingPage = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -56,6 +57,13 @@ const LandingPage = () => {
     },
   ];
 
+  const socialIcons = {
+    twitter: Twitter,
+    github: Github,
+    linkedin: Linkedin,
+    instagram: Instagram
+  };
+
   const features = [
     { icon: Clock, title: "Flexible Hours", description: "Work on your own schedule" },
     { icon: Target, title: "Weekly Payments", description: "Get paid consistently" },
@@ -77,19 +85,18 @@ const LandingPage = () => {
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-black/90 backdrop-blur-xl border-b border-white/5' : ''}`}>
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text hover:scale-105 transition-all cursor-pointer group">
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text hover:scale-105 transition-all cursor-pointer">
               student.dev
-              <div className="h-0.5 w-0 group-hover:w-full transition-all duration-300 bg-gradient-to-r from-purple-400 to-pink-600" />
             </span>
             <div className="hidden md:flex items-center gap-8 text-sm">
               {['Services', 'About', 'Testimonials', 'Contact'].map((item) => (
                 <a 
                   key={item} 
                   href="#" 
-                  className="relative group overflow-hidden"
+                  className="relative group"
                 >
-                  <span className="relative z-10 hover:text-purple-400 transition-colors">{item}</span>
-                  <div className="absolute inset-0 h-0.5 w-full bg-gradient-to-r from-purple-400 to-pink-500 -bottom-0 transform translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
+                  <span className="relative z-10 hover:text-purple-400 transition-colors duration-300">{item}</span>
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-purple-400 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                 </a>
               ))}
             </div>
@@ -143,24 +150,23 @@ const LandingPage = () => {
             The ultimate platform for students to freelance, learn, and earn. Join a community of ambitious students turning their skills into success stories.
           </p>
           <div 
-            className={`flex flex-col md:flex-row items-center justify-center gap-4 transform transition-all duration-700 delay-300 ${
-              isVisible.buttons ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
-            }`} 
-            data-scroll="buttons"
-          >
-            <button className="group relative w-full md:w-auto px-8 py-4 rounded-full overflow-hidden">
-              <span className="relative z-10 flex items-center justify-center font-medium">
-                Start Earning Now
-                <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600" />
-            </button>
-            <button className="relative w-full md:w-auto px-8 py-4 rounded-full overflow-hidden group">
-              <span className="relative z-10 font-medium">Explore Platform</span>
-              <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-all transform scale-x-0 group-hover:scale-x-100 origin-left" />
-            </button>
+        className={`flex flex-col md:flex-row items-center justify-center gap-4 transform transition-all duration-1000 ${
+          isVisible.buttons ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+        }`} 
+        data-scroll="buttons"
+      >
+        <button className="group relative w-full md:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+          <div className="relative z-50 flex items-center justify-center font-medium">
+            Start Earning Now
+            <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
           </div>
+        </button>
+        <button className="relative w-full md:w-auto px-8 py-4 rounded-full bg-transparent overflow-hidden group">
+          <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-all duration-500" />
+          <span className="relative z-20 font-medium">Explore Platform</span>
+        </button>
+      </div>
         </div>
       </div>
 
@@ -227,13 +233,12 @@ const LandingPage = () => {
               <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
                 Join thousands of students who are already turning their skills into income. Your success story starts here.
               </p>
-              <button className="group relative px-8 py-4 rounded-full overflow-hidden">
-                <span className="relative z-10 flex items-center">
+              <button className="group relative px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+                <div className="relative z-20 flex items-center">
                   Create Your Profile
-                  <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600" />
+                  <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+                </div>
               </button>
             </div>
           </div>
@@ -250,14 +255,14 @@ const LandingPage = () => {
             </span>
             <p className="text-gray-400">Empowering students to turn their skills into successful careers.</p>
             <div className="flex gap-4">
-              {['twitter', 'github', 'linkedin', 'instagram'].map((social) => (
+              {Object.entries(socialIcons).map(([name, Icon]) => (
                 <a 
-                  key={social}
+                  key={name}
                   href="#"
                   className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors group"
                 >
-                  <span className="sr-only">{social}</span>
-                  <div className="w-5 h-5 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full group-hover:scale-110 transition-transform" />
+                  <span className="sr-only">{name}</span>
+                  <Icon className="w-5 h-5 text-gray-400 group-hover:text-white group-hover:scale-110 transition-all duration-300" />
                 </a>
               ))}
             </div>
