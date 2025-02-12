@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowRight, Sparkles, Target, Clock, Shield, TrendingUp, 
+  ArrowRight,  Target, Clock, Shield, TrendingUp, 
   Code, Briefcase, Users, BookOpen, Star, ChevronRight,
-  Twitter, Github, Linkedin, Instagram, Menu, X // Added Menu and X icons
+  Twitter, Github, Linkedin, Instagram, Menu, X
 } from 'lucide-react';
 
 const LandingPage = () => {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -77,14 +79,13 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
-      
-     {/* Navigation */}
+      {/* Navigation */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-black/90 backdrop-blur-xl border-b border-white/5' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
             <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
-              student.dev
+              UniTask
             </span>
 
             {/* Desktop Navigation */}
@@ -109,7 +110,10 @@ const LandingPage = () => {
                   <span className="relative z-10">Log In</span>
                   <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-all transform scale-x-0 group-hover:scale-x-100 origin-left" />
                 </button>
-                <button className="relative px-4 py-2 rounded-full overflow-hidden group">
+                <button 
+                  onClick={() => navigate('/signup')} 
+                  className="relative px-4 py-2 rounded-full overflow-hidden group"
+                >
                   <span className="relative z-10">Sign Up</span>
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600" />
@@ -147,7 +151,10 @@ const LandingPage = () => {
                 <button className="w-full py-2 px-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
                   Log In
                 </button>
-                <button className="w-full py-2 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity">
+                <button 
+                  onClick={() => navigate('/signup')}
+                  className="w-full py-2 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity"
+                >
                   Sign Up
                 </button>
               </div>
@@ -200,7 +207,10 @@ const LandingPage = () => {
             }`} 
             data-scroll="buttons"
           >
-            <button className="w-full sm:w-auto px-6 sm:px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 group relative overflow-hidden">
+            <button 
+              onClick={() => navigate('/signup')}
+              className="w-full sm:w-auto px-6 sm:px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 group relative overflow-hidden"
+            >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
               <div className="relative z-20 flex items-center justify-center font-medium">
                 Start Earning Now
@@ -214,8 +224,8 @@ const LandingPage = () => {
         </div>
       </div>
 
-       {/* Enhanced Features Grid */}
-       <div className="py-16 sm:py-20 px-4" data-scroll="features">
+      {/* Enhanced Features Grid */}
+      <div className="py-16 sm:py-20 px-4" data-scroll="features">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Why Choose Us?</h2>
@@ -237,7 +247,7 @@ const LandingPage = () => {
         </div>
       </div>
 
-     {/* Enhanced Services Cards */}
+      {/* Enhanced Services Cards */}
       <div className="py-16 sm:py-20 px-4" data-scroll="services">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {cards.map((card, index) => (
@@ -264,33 +274,33 @@ const LandingPage = () => {
         </div>
       </div>
 
-      {/* CTA Section */}
+      {/* CTA Section (continued) */}
       <div className="py-20 px-4" data-scroll="cta">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="p-12 rounded-3xl relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 to-blue-900/20" />
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff06_1px,transparent_1px),linear-gradient(to_bottom,#ffffff06_1px,transparent_1px)] bg-[size:24px_24px]" />
-            <div className="relative z-10">
-              <h2 className="text-4xl font-bold mb-6">
-                Ready to Start Your Journey?
-              </h2>
-              <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-                Join thousands of students who are already turning their skills into income. Your success story starts here.
-              </p>
-              <button className="group relative px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
-                <div className="relative z-20 flex items-center">
-                  Create Your Profile
-                  <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-                </div>
-              </button>
-            </div>
+      <div className="max-w-4xl mx-auto text-center">
+        <div className="p-12 rounded-3xl relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 to-blue-900/20" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff06_1px,transparent_1px),linear-gradient(to_bottom,#ffffff06_1px,transparent_1px)] bg-[size:24px_24px]" />
+          <div className="relative z-10">
+            <h2 className="text-4xl font-bold mb-6">
+              Ready to Start Your Journey?
+            </h2>
+            <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
+              Join thousands of students who are already turning their skills into income. Your success story starts here.
+            </p>
+            <button className="group relative px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+              <div className="relative z-20 flex items-center">
+                Create Your Profile
+                <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+              </div>
+            </button>
           </div>
         </div>
       </div>
+    </div>
 
-       {/* Enhanced Footer */}
-       <footer className="py-12 sm:py-16 px-4 border-t border-white/5">
+      {/* Enhanced Footer */}
+      <footer className="py-12 sm:py-16 px-4 border-t border-white/5">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand Column */}
           <div className="space-y-4">
@@ -315,7 +325,7 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Quick Links - Mobile Accordion Style */}
+          {/* Quick Links */}
           <div className="space-y-4 sm:space-y-2">
             <h3 className="font-semibold text-lg">Quick Links</h3>
             <ul className="space-y-2">
@@ -336,7 +346,8 @@ const LandingPage = () => {
               ))}
             </ul>
           </div>
-          {/* Newsletter - Enhanced Mobile Layout */}
+
+          {/* Newsletter */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Stay Updated</h3>
             <p className="text-gray-400">Get the latest opportunities and tips.</p>
@@ -352,6 +363,7 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
+
         {/* Bottom Bar */}
         <div className="max-w-7xl mx-auto mt-12 sm:mt-16 pt-8 border-t border-white/5">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4">
@@ -371,8 +383,9 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
-       {/* Mobile-specific Styles */}
-       <style>{`
+
+        {/* Mobile-specific Styles */}
+        <style>{`
           @media (max-width: 640px) {
             .animate-gradient-x {
               background-size: 300% auto;

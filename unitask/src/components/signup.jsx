@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Mail, Lock, User, Github, Phone, Calendar, Building2, Globe } from 'lucide-react';
 
 const SignupPage = () => {
@@ -159,7 +159,7 @@ const SignupPage = () => {
             <span className="text-sm">Back to Home</span>
           </a>
           <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
-            student.dev
+            UniTask
           </span>
         </div>
 
