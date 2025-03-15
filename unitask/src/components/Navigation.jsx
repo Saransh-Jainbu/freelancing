@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown } from 'lucide-react';
+import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown, MessageSquare, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContextValue';
 
 const Navigation = () => {
@@ -17,7 +17,9 @@ const Navigation = () => {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: Grid },
-    { name: 'My Gigs', path: '/gigs', icon: Briefcase },
+    { name: 'My Gigs', path: '/my-gigs', icon: Briefcase },
+    { name: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
+    { name: 'Messages', path: '/chat', icon: MessageSquare },
     { name: 'Profile', path: '/profile', icon: User }
   ];
 

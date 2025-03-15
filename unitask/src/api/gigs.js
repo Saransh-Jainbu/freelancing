@@ -1,35 +1,47 @@
 import API_URL from './config';
 
-// Get all gigs for a user
+// Get all gigs for a user with error handling
 export const getUserGigs = async (userId) => {
-  const response = await fetch(`${API_URL}/gigs/${userId}`);
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to fetch gigs');
+  try {
+    const response = await fetch(`${API_URL}/gigs/${userId}`);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch gigs');
+    }
+    
+    return data.gigs;
+  } catch (error) {
+    console.error('Error fetching user gigs:', error);
+    throw error;
   }
-  
-  return data.gigs;
 };
 
-// Create a new gig
+// Create a new gig with better error handling
 export const createGig = async (userId, gigData) => {
-  const response = await fetch(`${API_URL}/gigs`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userId, ...gigData }),
-  });
+  try {
+    const response = await fetch(`${API_URL}/gigs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        ...gigData
+      }),
+    });
 
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to create gig');
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to create gig');
+    }
+    
+    return data.gig;
+  } catch (error) {
+    console.error('Error creating gig:', error);
+    throw error;
   }
-  
-  return data.gig;
 };
 
 // Update a gig
@@ -94,4 +106,35 @@ export const deleteGig = async (gigId, userId) => {
   }
   
   return data;
+};
+
+// Get all public gigs for marketplace
+export const getMarketplaceGigs = async () => {
+  try {
+    const response = await fetch(`${API_URL}/marketplace/gigs`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch marketplace gigs');
+    }
+    
+    const data = await response.json();
+    return data.gigs;
+  } catch (error) {
+    console.error('Marketplace fetch error:', error);
+    throw error;
+  }
+};
+
+// Get single gig details
+export const getGigDetails = async (gigId) => {
+  const response = await fetch(`${API_URL}/gigs/${gigId}/details`);
+  
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to fetch gig details');
+  }
+  
+  return data.gig;
 };

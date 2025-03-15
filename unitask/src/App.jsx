@@ -7,10 +7,14 @@ import PropTypes from 'prop-types';
 import LoginPage from './components/login';
 import SignupPage from './components/signup';
 import ProfilePage from './components/profile';
-import MyGigsPage from './components/dashboard';
+import MyGigsPage from './components/gigs/MyGigs';
+import DashboardPage from './components/dashboard';
+import ChatPage from './components/chat';
 import Navigation from './components/Navigation';
 import OAuthCallback from './components/OAuthCallback';
 import LandingPage from './components/LandingPage';
+import MarketplacePage from './components/marketplace';
+import GigDetails from "./components/gigs/GigDetails";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -62,7 +66,34 @@ const AppRoutes = () => {
       } />
       <Route path="/dashboard" element={
         <ProtectedRoute>
+          <DashboardPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/my-gigs" element={
+        <ProtectedRoute>
           <MyGigsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/chat" element={
+        <ProtectedRoute>
+          <ChatPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/chat/:conversationId" element={
+        <ProtectedRoute>
+          <ChatPage />
+        </ProtectedRoute>
+      } />
+      
+      {/* Marketplace routes */}
+      <Route path="/marketplace" element={
+        <ProtectedRoute>
+          <MarketplacePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/gig/:gigId" element={
+        <ProtectedRoute>
+          <GigDetails />
         </ProtectedRoute>
       } />
       

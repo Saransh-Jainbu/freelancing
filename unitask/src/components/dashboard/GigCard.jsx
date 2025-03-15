@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
-import { Pencil, Trash2, Eye } from 'lucide-react';
+import { Pencil, Trash2, Eye, Link } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 
 const GigCard = ({ gig, onToggleStatus, onDelete, onEdit }) => {
   return (
@@ -18,6 +19,13 @@ const GigCard = ({ gig, onToggleStatus, onDelete, onEdit }) => {
           {gig.status.charAt(0).toUpperCase() + gig.status.slice(1)}
         </span>
         <div className="flex gap-2">
+          <RouterLink 
+            to={`/gig/${gig.id}`}
+            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-blue-400"
+            title="View Gig"
+          >
+            <Link className="w-4 h-4" />
+          </RouterLink>
           <button 
             onClick={() => onToggleStatus(gig.id)}
             className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"

@@ -6,6 +6,8 @@ const dotenv = require('dotenv');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
+const http = require('http');
+const socketIo = require('socket.io');
 
 // Load environment variables
 dotenv.config();
@@ -13,6 +15,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+// Create HTTP server and Socket.io instance
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
 // Middleware
 app.use(express.json());
@@ -117,6 +129,45 @@ const initDb = async () => {
       )
     `);
 
+    // Conversations table
+    await query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        gig_id INTEGER,
+        gig_title VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Conversation participants
+    await query(`
+      CREATE TABLE IF NOT EXISTS conversation_participants (
+        conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        PRIMARY KEY (conversation_id, user_id)
+      )
+    `);
+    
+    // Messages table
+    await query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
+        sender_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        content TEXT NOT NULL,
+        read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add new columns to conversations table
+    await query(`
+      ALTER TABLE conversations 
+      ADD COLUMN IF NOT EXISTS gig_id INTEGER,
+      ADD COLUMN IF NOT EXISTS gig_title VARCHAR(255)
+    `);
+
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Error initializing database', error);
@@ -126,6 +177,56 @@ const initDb = async () => {
 
 // Initialize database on server start
 initDb();
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+  
+  // Join conversation room
+  socket.on('join-conversation', (conversationId) => {
+    socket.join(`conversation-${conversationId}`);
+    console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+  });
+  
+  // Handle new message
+  socket.on('send-message', async (messageData) => {
+    try {
+      const { conversationId, senderId, content } = messageData;
+      
+      // Insert message to database
+      const result = await query(
+        `INSERT INTO messages (conversation_id, sender_id, content)
+         VALUES ($1, $2, $3)
+         RETURNING id, conversation_id, sender_id, content, read, created_at`,
+        [conversationId, senderId, content]
+      );
+      
+      // Update conversation's updated_at
+      await query(
+        `UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [conversationId]
+      );
+      
+      const newMessage = result.rows[0];
+      
+      // Emit to all users in the conversation
+      io.to(`conversation-${conversationId}`).emit('new-message', newMessage);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      socket.emit('message-error', { error: 'Failed to send message' });
+    }
+  });
+
+  // Handle typing indicator
+  socket.on('typing', ({ conversationId, userId, isTyping }) => {
+    socket.to(`conversation-${conversationId}`).emit('user-typing', { userId, isTyping });
+  });
+  
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
 
 // Configure Passport strategies
 passport.use(new GoogleStrategy({
@@ -363,6 +464,274 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Chat endpoints
+app.get('/api/conversations/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    const result = await query(
+      `SELECT c.id, c.created_at, c.updated_at,
+       (
+         SELECT json_agg(json_build_object(
+           'id', u.id,
+           'display_name', u.display_name,
+           'avatar_url', p.avatar_url
+         ))
+         FROM conversation_participants cp
+         JOIN users u ON cp.user_id = u.id
+         LEFT JOIN profiles p ON u.id = p.user_id
+         WHERE cp.conversation_id = c.id AND cp.user_id != $1
+       ) as participants,
+       (
+         SELECT m.content
+         FROM messages m
+         WHERE m.conversation_id = c.id
+         ORDER BY m.created_at DESC
+         LIMIT 1
+       ) as last_message,
+       (
+         SELECT COUNT(*)
+         FROM messages m
+         WHERE m.conversation_id = c.id AND m.read = false AND m.sender_id != $1
+       ) as unread_count
+       FROM conversations c
+       JOIN conversation_participants cp ON c.id = cp.conversation_id
+       WHERE cp.user_id = $1
+       ORDER BY c.updated_at DESC`,
+      [userId]
+    );
+    
+    res.json({ success: true, conversations: result.rows });
+  } catch (error) {
+    console.error('Conversations fetch error:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching conversations' });
+  }
+});
+
+app.post('/api/conversations', async (req, res) => {
+  try {
+    const { participantIds, gigInfo } = req.body;
+    
+    if (!participantIds || participantIds.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least two participants are required'
+      });
+    }
+
+    // Check if conversation already exists between these users
+    const existingConversation = await query(
+      `SELECT c.id FROM conversations c
+       JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
+       JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
+       WHERE cp1.user_id = $1 AND cp2.user_id = $2
+       LIMIT 1`,
+      [participantIds[0], participantIds[1]]
+    );
+
+    if (existingConversation.rows.length > 0) {
+      // Return existing conversation
+      const conversation = await query(
+        `SELECT c.*, array_agg(json_build_object(
+          'id', u.id,
+          'display_name', u.display_name,
+          'avatar_url', p.avatar_url
+        )) as participants
+        FROM conversations c
+        JOIN conversation_participants cp ON c.id = cp.conversation_id
+        JOIN users u ON cp.user_id = u.id
+        LEFT JOIN profiles p ON u.id = p.user_id
+        WHERE c.id = $1
+        GROUP BY c.id`,
+        [existingConversation.rows[0].id]
+      );
+
+      return res.json({ success: true, conversation: conversation.rows[0] });
+    }
+
+    // If no existing conversation, create new one
+
+    // Start transaction
+    await query('BEGIN');
+
+    // Create new conversation with gig info
+    const conversationResult = await query(
+      'INSERT INTO conversations (gig_id, gig_title) VALUES ($1, $2) RETURNING id',
+      [gigInfo?.gig_id || null, gigInfo?.title || null]
+    );
+    
+    const conversationId = conversationResult.rows[0].id;
+    
+    // Add participants
+    for (const participantId of participantIds) {
+      await query(
+        'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2)',
+        [conversationId, participantId]
+      );
+    }
+    
+    await query('COMMIT');
+    
+    // Fetch the complete conversation data
+    const fullConversation = await query(
+      `SELECT c.*, array_agg(json_build_object(
+        'id', u.id,
+        'display_name', u.display_name,
+        'avatar_url', p.avatar_url
+      )) as participants
+      FROM conversations c
+      JOIN conversation_participants cp ON c.id = cp.conversation_id
+      JOIN users u ON cp.user_id = u.id
+      LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE c.id = $1
+      GROUP BY c.id`,
+      [conversationId]
+    );
+    
+    res.status(201).json({ 
+      success: true, 
+      conversation: fullConversation.rows[0] 
+    });
+  } catch (error) {
+    await query('ROLLBACK');
+    console.error('Create conversation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error creating conversation',
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/conversations/:conversationId/messages', async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { userId } = req.query;
+    
+    // Check if user is participant
+    const participantCheck = await query(
+      'SELECT 1 FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2',
+      [conversationId, userId]
+    );
+    
+    if (participantCheck.rows.length === 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'User is not a participant in this conversation' 
+      });
+    }
+    
+    // Get messages
+    const messagesResult = await query(
+      `SELECT m.id, m.content, m.read, m.created_at, m.sender_id,
+       json_build_object(
+         'id', u.id,
+         'display_name', u.display_name,
+         'avatar_url', p.avatar_url
+       ) as sender
+       FROM messages m
+       JOIN users u ON m.sender_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC`,
+      [conversationId]
+    );
+    
+    // Mark messages as read
+    await query(
+      `UPDATE messages 
+       SET read = true 
+       WHERE conversation_id = $1 AND sender_id != $2 AND read = false`,
+      [conversationId, userId]
+    );
+    
+    res.json({ success: true, messages: messagesResult.rows });
+  } catch (error) {
+    console.error('Messages fetch error:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching messages' });
+  }
+});
+
+// Delete conversation endpoint
+app.delete('/api/conversations/:conversationId', async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    
+    // Start transaction
+    await query('BEGIN');
+    
+    // Delete all messages in the conversation
+    await query('DELETE FROM messages WHERE conversation_id = $1', [conversationId]);
+    
+    // Delete conversation participants
+    await query('DELETE FROM conversation_participants WHERE conversation_id = $1', [conversationId]);
+    
+    // Delete the conversation
+    await query('DELETE FROM conversations WHERE id = $1', [conversationId]);
+    
+    await query('COMMIT');
+    
+    res.json({ success: true, message: 'Conversation deleted successfully' });
+  } catch (error) {
+    await query('ROLLBACK');
+    console.error('Delete conversation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error deleting conversation' 
+    });
+  }
+});
+
+// Users search API for finding conversation partners
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const { q, currentUserId } = req.query;
+    
+    if (!q) {
+      return res.json({ success: true, users: [] });
+    }
+    
+    const searchQuery = `%${q}%`;
+    
+    const usersQuery = currentUserId
+      ? `SELECT id, email, display_name 
+         FROM users 
+         WHERE id != $1 AND 
+         (email ILIKE $2 OR display_name ILIKE $2) 
+         ORDER BY display_name
+         LIMIT 20`
+      : `SELECT id, email, display_name 
+         FROM users 
+         WHERE email ILIKE $1 OR display_name ILIKE $1
+         ORDER BY display_name
+         LIMIT 20`;
+    
+    const params = currentUserId 
+      ? [currentUserId, searchQuery] 
+      : [searchQuery];
+    
+    const result = await query(usersQuery, params);
+    
+    // Get avatar URLs
+    const usersWithAvatars = await Promise.all(result.rows.map(async (user) => {
+      const avatarResult = await query(
+        'SELECT avatar_url FROM profiles WHERE user_id = $1',
+        [user.id]
+      );
+      
+      return {
+        ...user,
+        avatar_url: avatarResult.rows[0]?.avatar_url || null
+      };
+    }));
+    
+    res.json({ success: true, users: usersWithAvatars });
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({ success: false, message: 'Server error searching users' });
+  }
+});
+
 // Profile Routes
 app.get('/api/profile/:userId', async (req, res) => {
   try {
@@ -552,17 +921,30 @@ app.get('/api/gigs/:userId', async (req, res) => {
         orders,
         rating,
         TO_CHAR(earnings, 'FM$999,999,999.00') as earnings,
-        TO_CHAR(created_at, 'YYYY-MM-DD') as created
+        TO_CHAR(created_at, 'YYYY-MM-DD') as created,
+        user_id
       FROM gigs 
       WHERE user_id = $1
       ORDER BY created_at DESC`,
       [userId]
     );
     
-    res.json({ success: true, gigs: result.rows });
+    res.json({ 
+      success: true, 
+      gigs: result.rows.map(gig => ({
+        ...gig,
+        orders: gig.orders || 0,
+        rating: gig.rating || 0,
+        earnings: gig.earnings || '$0.00'
+      }))
+    });
   } catch (error) {
     console.error('Gigs fetch error:', error);
-    res.status(500).json({ success: false, message: 'Server error fetching gigs' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error fetching gigs',
+      error: error.message 
+    });
   }
 });
 
@@ -570,19 +952,58 @@ app.post('/api/gigs', async (req, res) => {
   try {
     const { userId, title, category, price, description } = req.body;
     
+    // Validate required fields
+    if (!userId || !title || !category || !price || !description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+    
+    // Start a transaction
+    await query('BEGIN');
+    
     const result = await query(
       `INSERT INTO gigs (user_id, title, category, price, description)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, title, description, category, price, status, orders, rating, 
-       TO_CHAR(earnings, 'FM$999,999,999.00') as earnings,
-       TO_CHAR(created_at, 'YYYY-MM-DD') as created`,
+       RETURNING id, user_id, title, description, category, price, status, orders, rating,
+       created_at`,
       [userId, title, category, price, description]
     );
     
-    res.status(201).json({ success: true, gig: result.rows[0] });
+    // Get seller information
+    const sellerInfo = await query(
+      `SELECT 
+        u.display_name as seller_name,
+        p.title as seller_title,
+        p.avatar_url as seller_avatar
+       FROM users u
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE u.id = $1`,
+      [userId]
+    );
+
+    await query('COMMIT');
+
+    const gig = {
+      ...result.rows[0],
+      seller_name: sellerInfo.rows[0]?.seller_name,
+      seller_title: sellerInfo.rows[0]?.seller_title,
+      seller_avatar: sellerInfo.rows[0]?.seller_avatar,
+    };
+    
+    res.status(201).json({ 
+      success: true, 
+      gig 
+    });
   } catch (error) {
+    await query('ROLLBACK');
     console.error('Gig creation error:', error);
-    res.status(500).json({ success: false, message: 'Server error creating gig' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error creating gig',
+      error: error.message 
+    });
   }
 });
 
@@ -658,7 +1079,120 @@ app.delete('/api/gigs/:gigId', async (req, res) => {
   }
 });
 
-// Server Start
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Public Gigs Routes - Modified with better error handling
+app.get('/api/marketplace/gigs', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT 
+        g.id, 
+        g.user_id,
+        g.title, 
+        g.description, 
+        g.category,
+        g.price,
+        g.rating,
+        g.created_at,
+        u.id as seller_id,
+        u.display_name as seller_name,
+        p.title as seller_title,
+        p.avatar_url as seller_avatar,
+        p.rating as seller_rating
+      FROM gigs g
+      JOIN users u ON g.user_id = u.id
+      LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE g.status = 'active'
+      ORDER BY g.created_at DESC`,
+      []
+    );
+    
+    res.json({ 
+      success: true, 
+      gigs: result.rows.map(gig => ({
+        ...gig,
+        price: gig.price || '$0',
+        rating: gig.rating || 0,
+        seller_rating: gig.seller_rating || 0
+      }))
+    });
+  } catch (error) {
+    console.error('Public gigs fetch error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error fetching gigs',
+      error: error.message 
+    });
+  }
 });
+
+// Get single gig details with seller information
+app.get('/api/gigs/:gigId/details', async (req, res) => {
+  try {
+    const { gigId } = req.params;
+    
+    const result = await query(
+      `SELECT 
+        g.id, 
+        g.title, 
+        g.description, 
+        g.category,
+        g.price,
+        g.rating,
+        g.created_at,
+        u.id as seller_id,
+        u.display_name as seller_name,
+        p.title as seller_title,
+        p.avatar_url as seller_avatar,
+        p.rating as seller_rating,
+        p.completion_rate,
+        p.response_time
+      FROM gigs g
+      JOIN users u ON g.user_id = u.id
+      LEFT JOIN profiles p ON u.id = p.user_id
+      WHERE g.id = $1 AND g.status = 'active'`,
+      [gigId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Gig not found' });
+    }
+    
+    res.json({ success: true, gig: result.rows[0] });
+  } catch (error) {
+    console.error('Gig details fetch error:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching gig details' });
+  }
+});
+
+// Replace server.listen with better error handling
+const startServer = async (initialPort) => {
+  const findAvailablePort = async (startPort) => {
+    return new Promise((resolve, reject) => {
+      server.once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          server.close();
+          resolve(findAvailablePort(startPort + 1));
+        } else {
+          reject(err);
+        }
+      });
+      
+      server.listen(startPort, () => {
+        resolve(startPort);
+      });
+    });
+  };
+
+  try {
+    const port = await findAvailablePort(initialPort);
+    console.log(`Server running on port ${port}`);
+    
+    // Update environment variable for other parts of the application
+    process.env.PORT = port;
+    process.env.SERVER_URL = `http://localhost:${port}`;
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer(PORT);
