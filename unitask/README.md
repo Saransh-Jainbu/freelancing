@@ -66,7 +66,7 @@ Create a `.env` file in the backend directory with the following variables:
 
 ```
 PORT=5000
-DATABASE_URL=postgresql://Freelancing_owner:npg_NwZd7Y0AIFRV@ep-polished-sea-a5r9mh76-pooler.us-east-2.aws.neon.tech/Freelancing?sslmode=require
+DATABASE_URL=postgresql://url
 ```
 
 ## Features
