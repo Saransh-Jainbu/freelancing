@@ -1,10 +1,26 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Mail, Lock, User, Github, Phone, Calendar, Building2, Globe } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Mail, Lock, User, Github, Phone, Calendar, Building2, Globe, Loader, AlertCircle } from 'lucide-react';
+import { registerUser } from '../api/auth';
+import { useNavigate, Link } from 'react-router-dom';
+import API_URL from '../api/config';
 
 const SignupPage = () => {
+  const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(1);
   const [formVisible, setFormVisible] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const [formData, setFormData] = useState({
+    displayName: '',
+    email: '',
+    password: '',
+    dateOfBirth: '',
+    university: '',
+    country: '',
+    contactNumber: '',
+  });
 
   useEffect(() => {
     setFormVisible(true);
@@ -17,6 +33,91 @@ const SignupPage = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
+
+  const handleContinue = () => {
+    if (activeStep === 1) {
+      // Validate step 1
+      if (!formData.displayName.trim()) {
+        setError('Full name is required');
+        return;
+      }
+      if (!formData.email.trim() || !formData.email.includes('@')) {
+        setError('Valid email is required');
+        return;
+      }
+      if (!formData.password || formData.password.length < 8) {
+        setError('Password must be at least 8 characters');
+        return;
+      }
+    }
+    
+    if (activeStep === 2) {
+      // Validate step 2
+      if (!formData.dateOfBirth) {
+        setError('Date of birth is required');
+        return;
+      }
+      if (!formData.university.trim()) {
+        setError('University name is required');
+        return;
+      }
+      if (!formData.country) {
+        setError('Country is required');
+        return;
+      }
+    }
+    
+    setError('');
+    setActiveStep(Math.min(activeStep + 1, 3));
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const userData = {
+        email: formData.email,
+        password: formData.password,
+        displayName: formData.displayName,
+        university: formData.university,
+        location: formData.country,
+        dateOfBirth: formData.dateOfBirth,
+        contactNumber: formData.contactNumber
+      };
+      
+      const result = await registerUser(userData);
+      
+      if (result.success) {
+        // Redirect to login page
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } else {
+        setError('Registration failed. Please try again.');
+      }
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = () => {
+    window.location.href = `${API_URL}/auth/google`;
+  };
+
+  const handleGithubSignup = () => {
+    window.location.href = `${API_URL}/auth/github`;
+  };
+
   const renderFormStep = (step) => {
     switch(step) {
       case 1:
@@ -28,6 +129,9 @@ const SignupPage = () => {
                 <User className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
+                  name="displayName"
+                  value={formData.displayName}
+                  onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-10 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                   placeholder="John Doe"
                 />
@@ -40,6 +144,9 @@ const SignupPage = () => {
                 <Mail className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-10 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                   placeholder="john@university.edu"
                 />
@@ -52,6 +159,9 @@ const SignupPage = () => {
                 <Lock className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-10 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                   placeholder="••••••••"
                 />
@@ -68,6 +178,9 @@ const SignupPage = () => {
                 <Calendar className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="date"
+                  name="dateOfBirth"
+                  value={formData.dateOfBirth}
+                  onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-10 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-gray-400"
                 />
               </div>
@@ -79,6 +192,9 @@ const SignupPage = () => {
                 <Building2 className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
+                  name="university"
+                  value={formData.university}
+                  onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-10 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                   placeholder="University Name"
                 />
@@ -90,6 +206,9 @@ const SignupPage = () => {
               <div className="relative">
                 <Globe className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <select
+                  name="country"
+                  value={formData.country}
+                  onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-10 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-gray-400"
                 >
                   <option value="">Select your country</option>
@@ -97,7 +216,12 @@ const SignupPage = () => {
                   <option value="UK">United Kingdom</option>
                   <option value="CA">Canada</option>
                   <option value="AU">Australia</option>
-                  {/* Add more countries as needed */}
+                  <option value="IN">India</option>
+                  <option value="DE">Germany</option>
+                  <option value="FR">France</option>
+                  <option value="JP">Japan</option>
+                  <option value="BR">Brazil</option>
+                  <option value="ZA">South Africa</option>
                 </select>
               </div>
             </div>
@@ -108,6 +232,9 @@ const SignupPage = () => {
                 <Phone className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="tel"
+                  name="contactNumber"
+                  value={formData.contactNumber}
+                  onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-10 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                   placeholder="+1 (234) 567-8900"
                 />
@@ -119,9 +246,18 @@ const SignupPage = () => {
         return (
           <div className="space-y-4">
             <div className="text-center space-y-4">
-              <div className="text-2xl">🎉</div>
-              <h3 className="text-xl font-semibold">Almost there!</h3>
-              <p className="text-gray-400">Please verify your email to complete the registration process.</p>
+              <div className="text-5xl mb-3">{loading ? "" : "🎉"}</div>
+              {loading ? (
+                <Loader className="w-16 h-16 text-purple-500 animate-spin mx-auto" />
+              ) : (
+                <h3 className="text-xl font-semibold">Almost there!</h3>
+              )}
+              <p className="text-gray-400">
+                {loading 
+                  ? "Creating your account..." 
+                  : "Please verify your email to complete the registration process."
+                }
+              </p>
             </div>
           </div>
         );
@@ -154,10 +290,10 @@ const SignupPage = () => {
       <div className={`max-w-md w-full transition-all duration-1000 transform ${formVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
         {/* Logo and Back Button */}
         <div className="flex items-center justify-between mb-8">
-          <a href="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group">
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm">Back to Home</span>
-          </a>
+          </Link>
           <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
             UniTask
           </span>
@@ -194,11 +330,22 @@ const SignupPage = () => {
               {activeStep === 3 && "Verification"}
             </h2>
             
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/50 rounded-lg px-4 py-3 flex items-start gap-2 text-red-300 text-sm">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <p>{error}</p>
+              </div>
+            )}
+            
             {activeStep === 1 && (
               <>
                 {/* Social Sign Up */}
                 <div className="space-y-3">
-                  <button className="w-full py-3 px-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center gap-2 group border border-white/10">
+                  <button 
+                    type="button"
+                    onClick={handleGoogleSignup}
+                    className="w-full py-3 px-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center gap-2 group border border-white/10"
+                  >
                     <svg viewBox="0 0 24 24" className="w-5 h-5 group-hover:scale-110 transition-transform" xmlns="http://www.w3.org/2000/svg">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -207,7 +354,11 @@ const SignupPage = () => {
                     </svg>
                     Continue with Google
                   </button>
-                  <button className="w-full py-3 px-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center gap-2 group border border-white/10">
+                  <button 
+                    type="button"
+                    onClick={handleGithubSignup}
+                    className="w-full py-3 px-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center gap-2 group border border-white/10"
+                  >
                     <Github className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     Continue with Github
                   </button>
@@ -228,11 +379,14 @@ const SignupPage = () => {
 
             {/* Action Button */}
             <button 
-              onClick={() => setActiveStep(Math.min(activeStep + 1, 3))}
-              className="w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 group"
+              onClick={activeStep === 3 ? handleSubmit : handleContinue}
+              className={`w-full py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 group ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={loading}
             >
-              {activeStep === 3 ? 'Complete Registration' : 'Continue'}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              {activeStep === 3 ? (
+                loading ? 'Creating Account...' : 'Complete Registration'
+              ) : 'Continue'}
+              {!loading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
             </button>
 
             {/* Terms */}
@@ -250,7 +404,7 @@ const SignupPage = () => {
         {/* Login Link */}
         <p className="text-center mt-6 text-gray-400">
           Already have an account?{' '}
-          <a href="#" className="text-purple-400 hover:text-purple-300 transition-colors">Sign in</a>
+          <a href="/login" className="text-purple-400 hover:text-purple-300 transition-colors">Sign in</a>
         </p>
       </div>
     </div>

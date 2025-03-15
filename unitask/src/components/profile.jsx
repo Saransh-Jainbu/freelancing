@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { 
   Edit2, 
   MapPin, 
@@ -9,10 +10,10 @@ import {
   Plus,
   Camera,
   X,
-  Save,
-  ChevronDown
+  ChevronDown,
+  Loader
 } from 'lucide-react';
-
+import { getProfile, updateProfile } from '../api/profile';
 // Reusing the Modal component from your existing code
 const Modal = ({ isOpen, onClose, children }) => {
   useEffect(() => {
@@ -48,14 +49,37 @@ const Modal = ({ isOpen, onClose, children }) => {
   );
 };
 
+Modal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  children: PropTypes.node.isRequired
+};
+
 // Edit Profile Modal Component
 const EditProfileModal = ({ isOpen, onClose, profileData, onSaveProfile }) => {
   const [formData, setFormData] = useState({...profileData});
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    setFormData({...profileData});
+  }, [profileData]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSaveProfile(formData);
-    onClose();
+    setSubmitLoading(true);
+    setError('');
+    
+    try {
+      // Assuming we have the userId from authentication context
+      const userId = 1; // This should come from auth context
+      await onSaveProfile(userId, formData);
+      onClose();
+    } catch (error) {
+      setError(error.message || 'Failed to update profile');
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -101,6 +125,12 @@ const EditProfileModal = ({ isOpen, onClose, profileData, onSaveProfile }) => {
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex flex-col items-center mb-4">
@@ -226,14 +256,21 @@ const EditProfileModal = ({ isOpen, onClose, profileData, onSaveProfile }) => {
               type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-white"
+              disabled={submitLoading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity text-white"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity text-white flex items-center gap-2"
+              disabled={submitLoading}
             >
-              Save Changes
+              {submitLoading ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -242,30 +279,106 @@ const EditProfileModal = ({ isOpen, onClose, profileData, onSaveProfile }) => {
   );
 };
 
+EditProfileModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  profileData: PropTypes.object.isRequired,
+  onSaveProfile: PropTypes.func.isRequired
+};
+
 // Profile Page Component
 const ProfilePage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [profileData, setProfileData] = useState({
-    displayName: "Alex Morgan",
-    title: "Full-Stack Developer & UI/UX Designer",
-    location: "San Francisco, CA",
-    memberSince: "September 2023",
-    bio: "I'm a passionate developer with over 5 years of experience building web applications and designing user interfaces. Specialized in React, Node.js, and modern JavaScript frameworks.",
-    hourlyRate: 45,
-    completionRate: 98,
-    responseTime: "Under 2 hours",
-    totalEarnings: "$24,850",
-    totalProjects: 47,
-    rating: 4.9,
-    reviews: 38,
-    skills: ["React.js", "Node.js", "UI/UX Design", "JavaScript", "MongoDB", "Tailwind CSS"],
-    isVerified: true,
-    languages: ["English (Native)", "Spanish (Conversational)"]
+    displayName: "",
+    title: "",
+    location: "",
+    memberSince: "",
+    bio: "",
+    hourlyRate: 0,
+    completionRate: 0,
+    responseTime: "",
+    totalEarnings: "$0",
+    totalProjects: 0,
+    rating: 0,
+    reviews: 0,
+    skills: [],
+    isVerified: false,
+    languages: []
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleSaveProfile = (updatedProfile) => {
-    setProfileData(updatedProfile);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        // Assuming we have the userId from authentication context
+        const userId = 1; // This should come from auth context
+        const data = await getProfile(userId);
+        
+        setProfileData({
+          displayName: data.display_name,
+          title: data.title || '',
+          location: data.location || '',
+          memberSince: data.member_since,
+          bio: data.bio || '',
+          hourlyRate: data.hourly_rate || 0,
+          completionRate: data.completion_rate,
+          responseTime: data.response_time || 'Under 2 hours',
+          totalEarnings: `$${data.total_earnings || 0}`,
+          totalProjects: data.total_projects,
+          rating: data.rating,
+          reviews: data.reviews,
+          skills: data.skills || [],
+          isVerified: data.is_verified,
+          languages: data.languages || []
+        });
+        setError('');
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+        setError('Failed to load profile. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, []);
+
+  const handleSaveProfile = async (userId, updatedProfile) => {
+    await updateProfile(userId, updatedProfile);
+    const data = await getProfile(userId);
+    
+    setProfileData({
+      displayName: data.display_name,
+      title: data.title || '',
+      location: data.location || '',
+      memberSince: data.member_since,
+      bio: data.bio || '',
+      hourlyRate: data.hourly_rate || 0,
+      completionRate: data.completion_rate,
+      responseTime: data.response_time || 'Under 2 hours',
+      totalEarnings: `$${data.total_earnings || 0}`,
+      totalProjects: data.total_projects,
+      rating: data.rating,
+      reviews: data.reviews,
+      skills: data.skills || [],
+      isVerified: data.is_verified,
+      languages: data.languages || []
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <Loader className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+          <p className="text-gray-400">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -275,6 +388,7 @@ const ProfilePage = () => {
         onClose={() => setIsEditModalOpen(false)}
         profileData={profileData}
         onSaveProfile={handleSaveProfile}
+        isLoading={loading}
       />
 
       {/* Header */}
@@ -295,6 +409,21 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      {/* Error message if any */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300">
+            {error}
+            <button 
+              onClick={() => window.location.reload()} 
+              className="ml-2 underline hover:text-white"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Profile Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -518,8 +647,7 @@ const ProfilePage = () => {
     </div>
   );
 };
-
-// Helper components for icons not included in the imports
+    
 const Dollar = (props) => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
@@ -555,5 +683,9 @@ const CheckCircle = (props) => (
     <polyline points="22 4 12 14.01 9 11.01"></polyline>
   </svg>
 );
+
+CheckCircle.propTypes = {
+  className: PropTypes.string
+};
 
 export default ProfilePage;

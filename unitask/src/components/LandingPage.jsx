@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ArrowRight,  Target, Clock, Shield, TrendingUp, 
+  ArrowRight, Target, Clock, Shield, TrendingUp, 
   Code, Briefcase, Users, BookOpen, Star, ChevronRight,
   Twitter, Github, Linkedin, Instagram, Menu, X
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContextValue';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -31,6 +33,13 @@ const LandingPage = () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    // If user is logged in, redirect to dashboard
+    if (currentUser) {
+      navigate('/dashboard');
+    }
+  }, [currentUser, navigate]);
 
   const cards = [
     { 
@@ -106,18 +115,15 @@ const LandingPage = () => {
 
               {/* Desktop Auth Buttons */}
               <div className="flex items-center gap-4">
-                <button className="group relative px-4 py-2 rounded-full overflow-hidden">
+                <Link to="/login" className="group relative px-4 py-2 rounded-full overflow-hidden">
                   <span className="relative z-10">Log In</span>
                   <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-all transform scale-x-0 group-hover:scale-x-100 origin-left" />
-                </button>
-                <button 
-                  onClick={() => navigate('/signup')} 
-                  className="relative px-4 py-2 rounded-full overflow-hidden group"
-                >
+                </Link>
+                <Link to="/signup" className="relative px-4 py-2 rounded-full overflow-hidden group">
                   <span className="relative z-10">Sign Up</span>
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600" />
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -148,15 +154,12 @@ const LandingPage = () => {
                 </a>
               ))}
               <div className="pt-4 border-t border-white/5 space-y-3">
-                <button className="w-full py-2 px-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
+                <Link to="/login" className="w-full py-2 px-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors block text-center">
                   Log In
-                </button>
-                <button 
-                  onClick={() => navigate('/signup')}
-                  className="w-full py-2 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity"
-                >
+                </Link>
+                <Link to="/signup" className="w-full py-2 px-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity block text-center">
                   Sign Up
-                </button>
+                </Link>
               </div>
             </div>
           </div>
@@ -207,8 +210,8 @@ const LandingPage = () => {
             }`} 
             data-scroll="buttons"
           >
-            <button 
-              onClick={() => navigate('/signup')}
+            <Link 
+              to="/signup"
               className="w-full sm:w-auto px-6 sm:px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 group relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
@@ -216,7 +219,7 @@ const LandingPage = () => {
                 Start Earning Now
                 <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
               </div>
-            </button>
+            </Link>
             <button className="w-full sm:w-auto px-6 sm:px-8 py-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors relative group">
               <span className="relative z-20 font-medium">Explore Platform</span>
             </button>
@@ -287,13 +290,16 @@ const LandingPage = () => {
             <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
               Join thousands of students who are already turning their skills into income. Your success story starts here.
             </p>
-            <button className="group relative px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 overflow-hidden">
+            <Link 
+              to="/signup"
+              className="group relative px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 overflow-hidden inline-flex items-center"
+            >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
               <div className="relative z-20 flex items-center">
                 Create Your Profile
                 <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
               </div>
-            </button>
+            </Link>
           </div>
         </div>
       </div>
