@@ -87,7 +87,7 @@ const DashboardPage = () => {
           <h1 className="text-2xl sm:text-3xl font-bold mb-2">
             Welcome back, {currentUser?.display_name}
           </h1>
-          <p className="text-gray-400">Here's an overview of your freelancing activity</p>
+          <p className="text-gray-400">Here&apos;s an overview of your freelancing activity</p>
         </div>
 
         {/* Stats Grid */}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageCircle, Star, Clock, DollarSign, Loader, AlertCircle } from 'lucide-react';
+import { MessageCircle, Star, Clock, Loader, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContextValue';
 import { createConversation } from '../../api/chat';
 import { getGigDetails } from '../../api/gigs';

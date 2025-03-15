@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Send, Loader, ChevronLeft, MoreVertical, PlusCircle } from 'lucide-react';
+import { Send, Loader, PlusCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContextValue';
 import { getUserConversations, getConversationMessages, createConversation, deleteConversation } from '../../api/chat';
+import API_URL from '../../api/config';
 import { 
   initializeSocket, 
   joinConversation, 
@@ -33,21 +34,8 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef({});
 
-  // Initialize socket
-  useEffect(() => {
-    initializeSocket();
-    
-    // Cleanup function
-    return () => {
-      // Clean up any typing indicators when unmounting
-      if (activeConversation) {
-        setTypingStatus(activeConversation.id, currentUser.id, false);
-      }
-    };
-  }, []);
-
-  // Fetch users for new conversation (mock implementation)
-  const fetchUsers = async (searchQuery = '') => {
+  // Convert fetchUsers to useCallback to avoid dependency issues
+  const fetchUsers = useCallback(async (searchQuery = '') => {
     try {
       const response = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(searchQuery)}&currentUserId=${currentUser.id}`);
       const data = await response.json();
@@ -61,14 +49,27 @@ const ChatPage = () => {
       console.error('Error fetching users:', error);
       return [];
     }
-  };
+  }, [currentUser.id]);
+
+  // Initialize socket
+  useEffect(() => {
+    initializeSocket();
+    
+    // Cleanup function
+    return () => {
+      // Clean up any typing indicators when unmounting
+      if (activeConversation) {
+        setTypingStatus(activeConversation.id, currentUser.id, false);
+      }
+    };
+  }, [activeConversation, currentUser.id]);
 
   // Load users when new chat modal opens
   useEffect(() => {
     if (isNewChatModalOpen) {
       fetchUsers().then(setUsers);
     }
-  }, [isNewChatModalOpen, currentUser.id]);
+  }, [isNewChatModalOpen, fetchUsers]);
 
   // Handle new conversation creation
   const handleCreateConversation = async (participantIds) => {
@@ -309,6 +310,11 @@ const ChatPage = () => {
 
         {/* Chat area */}
         <div className="flex-1 flex flex-col bg-black">
+          {error && (
+            <div className="bg-red-500/10 text-red-500 p-4 text-center">
+              {error}
+            </div>
+          )}
           {activeConversation ? (
             <>
               <ChatHeader
