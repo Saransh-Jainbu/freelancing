@@ -78,32 +78,58 @@ const SignupPage = () => {
     setActiveStep(Math.min(activeStep + 1, 3));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
     try {
       setLoading(true);
       setError('');
       
-      const userData = {
+      // Add more detailed logging
+      console.log('Submitting registration to:', `${API_URL}/auth/register`);
+      console.log('Registration data:', {
         email: formData.email,
-        password: formData.password,
-        displayName: formData.displayName,
-        university: formData.university,
-        location: formData.country,
-        dateOfBirth: formData.dateOfBirth,
-        contactNumber: formData.contactNumber
-      };
+        displayName: formData.name,
+        // Don't log passwords
+      });
       
-      const result = await registerUser(userData);
+      // Use fetch directly for more control
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          displayName: formData.name,
+          location: formData.location,
+        }),
+      });
       
-      if (result.success) {
-        // Redirect to login page
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
+      // Get the response text first
+      const responseText = await response.text();
+      console.log('Registration response:', response.status, responseText);
+      
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (err) {
+        console.error('Failed to parse response as JSON:', responseText);
+        throw new Error('Invalid server response');
+      }
+      
+      // Handle success or failure
+      if (response.ok && data.success) {
+        // Show success message and proceed
+        setCurrentStep(4); // Move to success step
       } else {
-        setError('Registration failed. Please try again.');
+        // Handle error from server
+        throw new Error(data.message || 'Registration failed');
       }
     } catch (err) {
+      console.error('Registration error:', err);
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);

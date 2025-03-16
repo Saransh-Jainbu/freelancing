@@ -51,6 +51,19 @@ export default async function handler(req, res) {
       });
     }
     
+    // Check if email exists before trying to insert
+    const existingUser = await query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+    
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Email already exists'
+      });
+    }
+    
     // Hash password - use a fixed salt rounds value for consistency
     const salt = await bcrypt.genSalt(10);
     console.log('Generated salt:', salt);
