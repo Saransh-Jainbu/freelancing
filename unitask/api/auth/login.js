@@ -22,7 +22,7 @@ const query = async (text, params) => {
 };
 
 export default async function handler(req, res) {
-  // Handle OPTIONS request for CORS preflight - this is critical!
+  // Handle OPTIONS request for CORS preflight
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -40,6 +40,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Log incoming request for debugging
+    console.log('Login request received:', req.body);
+    
     const { email, password } = req.body;
     
     if (!email || !password) {
@@ -49,24 +52,48 @@ export default async function handler(req, res) {
       });
     }
     
+    // Get user from database
     const userResult = await query(
       'SELECT id, email, password_hash, display_name FROM users WHERE email = $1',
       [email]
     );
+    
+    console.log('User query result:', userResult.rows);
     
     if (userResult.rows.length === 0) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
     
     const user = userResult.rows[0];
-    const isMatch = await bcrypt.compare(password, user.password_hash);
     
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    // Debug logging
+    console.log('Comparing password with hash for:', email);
+    console.log('Password hash from DB:', user.password_hash);
+    
+    // Compare passwords - with proper error handling
+    try {
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      
+      console.log('Password match result:', isMatch);
+      
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
+    } catch (bcryptError) {
+      console.error('bcrypt comparison error:', bcryptError);
+      // If the hash is not in the correct format or there's another bcrypt error
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication error',
+        debug: bcryptError.message
+      });
     }
     
     // Don't return password hash to client
     const { password_hash, ...userData } = user;
+    
+    console.log('Login successful for user:', userData);
+    
     res.status(200).json({ success: true, user: userData });
   } catch (error) {
     console.error('Login error:', error);

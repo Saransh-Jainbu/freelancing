@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { createContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { loginUser } from '../api/auth';
-import { getProfile } from '../api/profile';
-import { AuthContext } from './AuthContextValue';
+import { loginUser, getProfile } from '../api/auth';
+
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -13,28 +13,25 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkLoggedIn = async () => {
       try {
-        const userJson = localStorage.getItem('unitask_user');
-        if (!userJson) {
-          setLoading(false);
-          return;
-        }
-
-        const user = JSON.parse(userJson);
+        const storedUser = localStorage.getItem('unitask_user');
         
-        // Fetch fresh profile data
-        try {
-          const profileData = await getProfile(user.id);
-          setCurrentUser({
-            ...user,
-            profile: profileData
-          });
-        } catch (error) {
-          console.error("Failed to fetch profile:", error);
-          // We still set the user even if profile fetch fails
-          setCurrentUser(user);
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          console.log('Found stored user:', parsedUser);
+          
+          // Add additional user data if needed
+          try {
+            // Optionally fetch profile
+            // const profileData = await getProfile(parsedUser.id);
+            setCurrentUser(parsedUser);
+          } catch (profileError) {
+            console.error('Error fetching profile:', profileError);
+            setCurrentUser(parsedUser); // Still set the user even if profile fetch fails
+          }
         }
       } catch (error) {
-        console.error("Auth initialization error:", error);
+        console.error('Error checking login status:', error);
+        localStorage.removeItem('unitask_user');
       } finally {
         setLoading(false);
       }
@@ -49,25 +46,47 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError('');
       
-      const userData = await loginUser(email, password);
+      console.log('Attempting login for:', email);
       
-      // Fetch user profile
-      const profileData = await getProfile(userData.id);
+      // Make the API request
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
       
-      const user = {
-        ...userData,
-        profile: profileData
-      };
+      console.log('Login response status:', response.status);
       
-      setCurrentUser(user);
-      localStorage.setItem('unitask_user', JSON.stringify({
-        id: user.id,
-        email: user.email,
-        display_name: user.display_name
-      }));
+      // Get response text
+      const text = await response.text();
+      console.log('Login response text:', text);
+      
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (error) {
+        console.error('Error parsing response:', error);
+        throw new Error('Invalid server response');
+      }
+      
+      // Check for success
+      if (!data.success) {
+        throw new Error(data.message || 'Login failed');
+      }
+      
+      // Set user data
+      const userData = data.user;
+      console.log('Login successful, user data:', userData);
+      
+      setCurrentUser(userData);
+      localStorage.setItem('unitask_user', JSON.stringify(userData));
       
       return { success: true };
     } catch (err) {
+      console.error('Login error:', err);
       setError(err.message || 'Failed to login');
       return { success: false, error: err.message };
     } finally {
