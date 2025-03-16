@@ -1,4 +1,5 @@
-import { query } from '../config/db';
+// Use relative import paths for serverless functions
+import { query } from '../../db';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
