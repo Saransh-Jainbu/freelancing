@@ -5,4 +5,17 @@ const API_URL = process.env.NODE_ENV === 'production'
 
 console.log('API URL configured as:', API_URL);
 
+// Add a function to check if the API is accessible
+export const checkApiStatus = async () => {
+  try {
+    const response = await fetch(`${API_URL}/health`);
+    const data = await response.json();
+    console.log('API status check:', data);
+    return data.status === 'online';
+  } catch (error) {
+    console.error('API status check failed:', error);
+    return false;
+  }
+};
+
 export default API_URL;
