@@ -85,6 +85,9 @@ const LoginPage = () => {
       setLoading(true);
       setError('');
       
+      // Debugging
+      console.log('Submitting login request to:', `${API_URL}/auth/login`);
+      
       const result = await login(formData.email, formData.password);
       
       if (result.success) {
@@ -94,7 +97,7 @@ const LoginPage = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Something went wrong. Please try again.');
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
