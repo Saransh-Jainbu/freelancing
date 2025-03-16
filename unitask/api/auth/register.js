@@ -1,14 +1,49 @@
-// Use relative import paths for serverless functions
-import { query } from '../../db';
+import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 
+// Initialize database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+// Helper function to execute queries
+const query = async (text, params) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(text, params);
+    return result;
+  } finally {
+    client.release();
+  }
+};
+
 export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  // Handle OPTIONS request for CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
   try {
     const { email, password, displayName, university, location, dateOfBirth, contactNumber } = req.body;
+    
+    if (!email || !password || !displayName) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields' 
+      });
+    }
     
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -29,7 +64,7 @@ export default async function handler(req, res) {
       // Create empty profile
       await query(
         'INSERT INTO profiles (user_id, location) VALUES ($1, $2)',
-        [userId, location]
+        [userId, location || '']
       );
       
       await query('COMMIT');
@@ -42,10 +77,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Email already exists' });
       }
       
+      console.error('Database error:', error);
       throw error;
     }
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ success: false, message: 'Server error during registration' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error during registration', 
+      error: error.message 
+    });
   }
 }

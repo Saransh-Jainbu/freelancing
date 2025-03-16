@@ -1,7 +1,7 @@
-// Add debugging to help identify API URL issues
+// Use the same domain for API requests to avoid CORS issues
 const API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://freelancing-tawny-psi.vercel.app/api'
-  : 'http://localhost:5000/api';
+  ? 'https://freelancing-git-master-saransh-jains-projects.vercel.app/api'
+  : 'http://localhost:3000/api';
 
 console.log('API URL configured as:', API_URL);
 
