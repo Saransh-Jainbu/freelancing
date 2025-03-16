@@ -29,8 +29,9 @@ const io = socketIo(server, {
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true
+  origin: process.env.FRONTEND_URL,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 // Initialize passport
@@ -232,7 +233,7 @@ io.on('connection', (socket) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: '/api/auth/google/callback',
+    callbackURL: `${process.env.SERVER_URL}/api/auth/google/callback`,
     proxy: true
   },
   async function(accessToken, refreshToken, profile, done) {
@@ -284,7 +285,7 @@ passport.use(new GoogleStrategy({
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: `${process.env.SERVER_URL || 'http://localhost:5000'}/api/auth/github/callback`,
+    callbackURL: `${process.env.SERVER_URL}/api/auth/github/callback`,
     scope: ['user:email']
   },
   async function(accessToken, refreshToken, profile, done) {

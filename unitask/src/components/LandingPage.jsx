@@ -86,6 +86,45 @@ const LandingPage = () => {
     { icon: Shield, title: "Community Support", description: "Connect with other students" },
   ];
 
+  const testimonials = [
+    {
+      name: "Sarah Johnson",
+      university: "Stanford University",
+      text: "UniTask helped me earn while studying computer science. I've made enough to cover my student loans and gained real-world experience!",
+      avatar: "/api/placeholder/48/48"
+    },
+    {
+      name: "Michael Chang",
+      university: "MIT",
+      text: "The platform is incredibly user-friendly. I've found consistent web development projects that fit perfectly with my class schedule.",
+      avatar: "/api/placeholder/48/48"
+    },
+    {
+      name: "Emily Rodriguez",
+      university: "UC Berkeley",
+      text: "As a design student, I found amazing opportunities to work with real clients. The community here is supportive and professional.",
+      avatar: "/api/placeholder/48/48"
+    },
+    {
+      name: "David Kim",
+      university: "Harvard University",
+      text: "Started as a side gig, now I'm running my own small consulting business through UniTask. It's been a game-changer for my career.",
+      avatar: "/api/placeholder/48/48"
+    },
+    {
+      name: "Priya Patel",
+      university: "Georgia Tech",
+      text: "The platform's flexibility allows me to balance my studies with freelance work. I've learned more here than in some of my classes!",
+      avatar: "/api/placeholder/48/48"
+    },
+    {
+      name: "James Wilson",
+      university: "NYU",
+      text: "Found my first tech internship through a connection I made on UniTask. The networking opportunities here are incredible.",
+      avatar: "/api/placeholder/48/48"
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
       {/* Navigation */}
@@ -274,6 +313,67 @@ const LandingPage = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Testimonials Section */}
+      <div className="py-20 px-4" data-scroll="testimonials">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Success Stories
+            </h2>
+            <p className="text-gray-400 max-w-2xl mx-auto">
+              Hear from students who have found success using our platform
+            </p>
+            <div className="h-1 w-20 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto mt-4" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {testimonials.map((testimonial, index) => (
+              <div 
+                key={index}
+                className="bg-white/5 rounded-xl p-6 relative group hover:bg-white/10 transition-all duration-300 border border-white/10"
+              >
+                {/* Quote Icon Background */}
+                <div className="absolute -top-4 -right-4 text-purple-500/10 transform group-hover:scale-110 transition-transform duration-300">
+                  <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21.42,10.36a8.21,8.21,0,0,0-5.83-5.83A8.11,8.11,0,0,0,3.64,10.36,8.12,8.12,0,0,0,9.47,19.5a8.21,8.21,0,0,0,5.83-5.83A8.11,8.11,0,0,0,21.42,10.36Z"/>
+                  </svg>
+                </div>
+
+                {/* Content */}
+                <div className="relative">
+                  {/* Star Rating */}
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star 
+                        key={i} 
+                        className="w-4 h-4 text-yellow-500" 
+                        fill="currentColor" 
+                      />
+                    ))}
+                  </div>
+
+                  {/* Testimonial Text */}
+                  <p className="text-gray-300 mb-6">&ldquo;{testimonial.text}&rdquo;</p>
+
+                  {/* Author Info */}
+                  <div className="flex items-center gap-3">
+                    <img 
+                      src={testimonial.avatar} 
+                      alt={testimonial.name}
+                      className="w-12 h-12 rounded-full object-cover ring-2 ring-purple-500/20"
+                    />
+                    <div>
+                      <h4 className="font-semibold">{testimonial.name}</h4>
+                      <p className="text-sm text-gray-400">{testimonial.university}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
