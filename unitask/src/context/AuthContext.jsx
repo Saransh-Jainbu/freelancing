@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { loginUser, getProfile } from '../api/auth';
+import { loginUser } from '../api/auth'; // Removed the getProfile import since it's not exported
 
 export const AuthContext = createContext();
 
@@ -19,15 +19,8 @@ export const AuthProvider = ({ children }) => {
           const parsedUser = JSON.parse(storedUser);
           console.log('Found stored user:', parsedUser);
           
-          // Add additional user data if needed
-          try {
-            // Optionally fetch profile
-            // const profileData = await getProfile(parsedUser.id);
-            setCurrentUser(parsedUser);
-          } catch (profileError) {
-            console.error('Error fetching profile:', profileError);
-            setCurrentUser(parsedUser); // Still set the user even if profile fetch fails
-          }
+          // Set the user directly without fetching profile since getProfile isn't available
+          setCurrentUser(parsedUser);
         }
       } catch (error) {
         console.error('Error checking login status:', error);
