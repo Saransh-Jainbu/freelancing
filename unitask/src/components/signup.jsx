@@ -114,13 +114,15 @@ const SignupPage = () => {
   };
 
   const handleGoogleSignup = () => {
-    console.log('Redirecting for Google auth:', `${API_URL}/api/auth/google`);
-    window.location.href = `${API_URL}/api/auth/google`;
+    const authUrl = `${API_URL}/api/auth/google`;
+    console.log('Redirecting for Google auth:', authUrl);
+    window.location.href = authUrl;
   };
 
   const handleGithubSignup = () => {
-    console.log('Redirecting for GitHub auth:', `${API_URL}/api/auth/github`);
-    window.location.href = `${API_URL}/api/auth/github`;
+    const authUrl = `${API_URL}/api/auth/github`;
+    console.log('Redirecting for GitHub auth:', authUrl);
+    window.location.href = authUrl;
   };
 
   const renderFormStep = (step) => {
