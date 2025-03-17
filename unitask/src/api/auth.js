@@ -1,13 +1,28 @@
+// Hardcode the API URL to ensure it's correctly bundled
+const API_URL = 'https://unitask-backend.onrender.com';
+
 import { apiRequest } from './client';
 
 // Register a new user
 export const registerUser = async (userData) => {
   try {
     console.log(`[Auth API] Making registration request with userData:`, userData);
-    const data = await apiRequest('/api/auth/register', {
+    const response = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
-      body: JSON.stringify(userData)
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+      mode: 'cors'
     });
+
+    console.log(`[Auth API] Registration response status:`, response.status);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Registration failed');
+    }
+    
     return data;
   } catch (error) {
     console.error('[Auth API] Registration error:', error);
@@ -19,13 +34,25 @@ export const registerUser = async (userData) => {
 export const loginUser = async (email, password) => {
   try {
     console.log(`[Auth API] Making login request for email:`, email);
-    const data = await apiRequest('/api/auth/login', {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed');
+    }
+    
     return data.user;
   } catch (error) {
     console.error('[Auth API] Login error:', error);
     throw error;
   }
 };
+
+export { API_URL };

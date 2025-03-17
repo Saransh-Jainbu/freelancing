@@ -1,4 +1,5 @@
 // Create a configured API client to use throughout the app
+// DO NOT use any environment variables - hardcode the production URL
 const API_URL = 'https://unitask-backend.onrender.com';
 
 console.log('[API Client] Using API URL:', API_URL);
@@ -25,4 +26,5 @@ export const apiRequest = async (endpoint, options = {}) => {
   return data;
 };
 
+// Export the API_URL directly to ensure it's used everywhere
 export default API_URL;
