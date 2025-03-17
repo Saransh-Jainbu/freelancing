@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContextValue';
 import { getUserGigs, deleteGig } from '../../api/gigs';
-import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader, Star, DollarSign, Calendar, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 import NewGigModal from './NewGigModal';
 import EditGigModal from './EditGigModal';
+import { API_URL } from '../../constants';
 
 const MyGigs = () => {
   const { currentUser } = useAuth();
@@ -106,8 +108,9 @@ const MyGigs = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <Loader className="w-8 h-8 text-purple-500 animate-spin" />
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
+        <Loader className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+        <p className="text-gray-400">Loading your gigs...</p>
       </div>
     );
   }
@@ -132,125 +135,140 @@ const MyGigs = () => {
       
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">My Gigs</h1>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">My Gigs</h1>
+            <p className="text-gray-400 mt-1">Manage and monitor your services</p>
+          </div>
           <button 
             onClick={() => setIsNewGigModalOpen(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-purple-500/20"
           >
             <Plus className="w-5 h-5" />
-            <span>New Gig</span>
+            <span>Create Gig</span>
           </button>
         </div>
         
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 text-red-200">
-            {error}
+          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 flex items-start gap-3 text-red-200">
+            <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <p>{error}</p>
           </div>
         )}
         
         {gigs.length === 0 ? (
-          <div className="bg-white/5 rounded-xl p-12 text-center">
-            <h3 className="text-xl font-medium mb-2">No gigs yet</h3>
-            <p className="text-gray-400 mb-6">Create your first gig to start getting clients</p>
+          <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-12 text-center border border-white/10 shadow-xl">
+            <div className="w-20 h-20 bg-gray-800/80 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Plus className="w-10 h-10 text-purple-400" />
+            </div>
+            <h3 className="text-xl font-medium mb-3 bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">No gigs yet</h3>
+            <p className="text-gray-400 mb-8 max-w-md mx-auto">Showcase your skills and start earning by creating your first gig. It takes just a few minutes!</p>
             <button 
               onClick={() => setIsNewGigModalOpen(true)}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg inline-flex items-center gap-2"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20 transition-all"
             >
               <Plus className="w-5 h-5" />
               Create Your First Gig
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-white/5 border-b border-white/10">
-                <tr>
-                  <th className="py-3 px-4 text-left">Gig</th>
-                  <th className="py-3 px-4 text-left">Category</th>
-                  <th className="py-3 px-4 text-left">Price</th>
-                  <th className="py-3 px-4 text-left">Orders</th>
-                  <th className="py-3 px-4 text-left">Earnings</th>
-                  <th className="py-3 px-4 text-left">Created</th>
-                  <th className="py-3 px-4 text-left">Status</th>
-                  <th className="py-3 px-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {gigs.map((gig) => (
-                  <tr key={gig.id} className="hover:bg-white/5">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="font-medium">{gig.title}</div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-gray-300">{gig.category}</td>
-                    <td className="py-4 px-4">{gig.price}</td>
-                    <td className="py-4 px-4">{gig.orders}</td>
-                    <td className="py-4 px-4">{gig.earnings}</td>
-                    <td className="py-4 px-4 text-gray-300">{gig.created}</td>
-                    <td className="py-4 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {gigs.map((gig) => (
+              <div key={gig.id} className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden hover:shadow-lg hover:shadow-purple-500/10 transition-all group">
+                <div className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium mb-3 ${
                         gig.status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
                       }`}>
                         {gig.status === 'active' ? 'Active' : 'Paused'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex justify-center items-center relative">
-                        <button 
-                          onClick={() => handleToggleActionMenu(gig.id)} 
-                          className="p-2 hover:bg-white/10 rounded-full"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        
-                        {actionMenuOpen === gig.id && (
-                          <div className="absolute top-full right-0 mt-1 w-48 bg-gray-800 rounded-lg shadow-xl z-10 py-1">
-                            <Link 
-                              to={`/gig/${gig.id}`} 
-                              className="px-4 py-2 flex items-center gap-2 hover:bg-white/5 w-full text-left text-sm"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              View Gig
-                            </Link>
-                            <button 
-                              onClick={() => handleEditGig(gig)} 
-                              className="px-4 py-2 flex items-center gap-2 hover:bg-white/5 w-full text-left text-sm"
-                            >
-                              <Edit className="w-4 h-4" />
-                              Edit Gig
-                            </button>
-                            <button 
-                              onClick={() => handleToggleGigStatus(gig)} 
-                              className="px-4 py-2 flex items-center gap-2 hover:bg-white/5 w-full text-left text-sm"
-                            >
-                              {gig.status === 'active' ? (
-                                <>
-                                  <PauseCircle className="w-4 h-4" />
-                                  Pause Gig
-                                </>
-                              ) : (
-                                <>
-                                  <PlayCircle className="w-4 h-4" />
-                                  Activate Gig
-                                </>
-                              )}
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteGig(gig.id)} 
-                              className="px-4 py-2 flex items-center gap-2 hover:bg-red-900/20 text-red-400 w-full text-left text-sm"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Delete Gig
-                            </button>
-                          </div>
-                        )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <h3 className="text-xl font-semibold mb-2 group-hover:text-purple-300 transition-colors line-clamp-2">{gig.title}</h3>
+                    </div>
+                    <div className="relative">
+                      <button 
+                        onClick={() => handleToggleActionMenu(gig.id)} 
+                        className="p-2 hover:bg-white/10 rounded-full"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      
+                      {actionMenuOpen === gig.id && (
+                        <div className="absolute top-full right-0 mt-1 w-48 bg-gray-800 rounded-lg shadow-xl z-10 py-1 border border-white/10">
+                          <Link 
+                            to={`/gig/${gig.id}`} 
+                            className="px-4 py-2.5 flex items-center gap-2 hover:bg-white/5 w-full text-left text-sm"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            View Gig
+                          </Link>
+                          <button 
+                            onClick={() => handleEditGig(gig)} 
+                            className="px-4 py-2.5 flex items-center gap-2 hover:bg-white/5 w-full text-left text-sm"
+                          >
+                            <Edit className="w-4 h-4" />
+                            Edit Gig
+                          </button>
+                          <button 
+                            onClick={() => handleToggleGigStatus(gig)} 
+                            className="px-4 py-2.5 flex items-center gap-2 hover:bg-white/5 w-full text-left text-sm"
+                          >
+                            {gig.status === 'active' ? (
+                              <>
+                                <PauseCircle className="w-4 h-4" />
+                                Pause Gig
+                              </>
+                            ) : (
+                              <>
+                                <PlayCircle className="w-4 h-4" />
+                                Activate Gig
+                              </>
+                            )}
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteGig(gig.id)} 
+                            className="px-4 py-2.5 flex items-center gap-2 hover:bg-red-900/20 text-red-400 w-full text-left text-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete Gig
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-gray-400 mb-4 line-clamp-2">
+                    {gig.description || "No description provided"}
+                  </p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <div className="bg-white/5 px-3 py-1 rounded-full text-xs flex items-center">
+                      <span className="text-gray-300">{gig.category}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-white/5 p-4 grid grid-cols-4 divide-x divide-white/5 bg-white/5">
+                  <div className="flex flex-col items-center px-2">
+                    <DollarSign className="w-4 h-4 text-green-400 mb-1" />
+                    <span className="text-sm font-medium">{gig.price}</span>
+                    <span className="text-xs text-gray-400">Price</span>
+                  </div>
+                  <div className="flex flex-col items-center px-2">
+                    <Star className="w-4 h-4 text-yellow-400 mb-1" />
+                    <span className="text-sm font-medium">{gig.rating || '0.0'}</span>
+                    <span className="text-xs text-gray-400">Rating</span>
+                  </div>
+                  <div className="flex flex-col items-center px-2">
+                    <DollarSign className="w-4 h-4 text-blue-400 mb-1" />
+                    <span className="text-sm font-medium">{gig.earnings || '$0'}</span>
+                    <span className="text-xs text-gray-400">Earned</span>
+                  </div>
+                  <div className="flex flex-col items-center px-2">
+                    <Calendar className="w-4 h-4 text-purple-400 mb-1" />
+                    <span className="text-sm font-medium">{gig.created}</span>
+                    <span className="text-xs text-gray-400">Created</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
