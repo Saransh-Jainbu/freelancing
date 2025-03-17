@@ -1,7 +1,4 @@
-// FORCE the production API URL in all environments to fix deployment issues
+// Single source of truth for API URL
 const API_URL = 'https://unitask-backend.onrender.com';
-
-// Log the URL being used
-console.log('[API Config] API requests will be sent to:', API_URL);
-
+console.log('[API Config] Using production API URL:', API_URL);
 export default API_URL;
