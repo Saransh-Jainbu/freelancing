@@ -4,7 +4,7 @@
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/api/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Credentials", "value": "true" },
         { "key": "Access-Control-Allow-Origin", "value": "https://unitask-backend.onrender.com" },
@@ -15,5 +15,10 @@
   ],
   "github": {
     "silent": true
+  },
+  "build": {
+    "env": {
+      "VITE_API_URL": "https://unitask-backend.onrender.com"
+    }
   }
 }

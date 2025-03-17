@@ -3,7 +3,7 @@ services:
     name: unitask-backend
     runtime: node
     region: oregon  # Change to your preferred region
-    rootDir: unitask/backend  # Explicitly set the root directory to backend folder
+    rootDir: backend  # Updated path - just the backend folder
     buildCommand: npm install
     startCommand: node server.js
     healthCheckPath: /api/health

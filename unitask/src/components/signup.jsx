@@ -83,6 +83,8 @@ const SignupPage = () => {
       setLoading(true);
       setError('');
       
+      console.log('Submitting registration to:', `${API_URL}/api/auth/register`);
+      
       const userData = {
         email: formData.email,
         password: formData.password,
@@ -104,6 +106,7 @@ const SignupPage = () => {
         setError('Registration failed. Please try again.');
       }
     } catch (err) {
+      console.error('Registration error:', err);
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
@@ -111,11 +114,13 @@ const SignupPage = () => {
   };
 
   const handleGoogleSignup = () => {
-    window.location.href = `${API_URL}/auth/google`;
+    console.log('Redirecting for Google auth:', `${API_URL}/api/auth/google`);
+    window.location.href = `${API_URL}/api/auth/google`;
   };
 
   const handleGithubSignup = () => {
-    window.location.href = `${API_URL}/auth/github`;
+    console.log('Redirecting for GitHub auth:', `${API_URL}/api/auth/github`);
+    window.location.href = `${API_URL}/api/auth/github`;
   };
 
   const renderFormStep = (step) => {
