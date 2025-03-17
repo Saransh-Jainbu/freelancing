@@ -2,16 +2,20 @@ import API_URL from './config';
 
 // Register a new user
 export const registerUser = async (userData) => {
-  console.log(`Making registration request to: ${API_URL}/api/auth/register`);
+  const apiEndpoint = `${API_URL}/api/auth/register`;
+  console.log(`[Auth API] Making registration request to: ${apiEndpoint}`, userData);
+  
   try {
-    const response = await fetch(`${API_URL}/api/auth/register`, {
+    const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(userData),
+      mode: 'cors'
     });
 
+    console.log(`[Auth API] Registration response status:`, response.status);
     const data = await response.json();
     
     if (!response.ok) {
@@ -20,7 +24,7 @@ export const registerUser = async (userData) => {
     
     return data;
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('[Auth API] Registration error:', error);
     throw error;
   }
 };
