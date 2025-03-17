@@ -149,7 +149,7 @@ To ensure your site works properly online:
 
 ## Online URLs After Deployment
 
-- **Frontend**: https://unitask-freelancing.vercel.app (or your custom domain)
+- **Frontend**: https://unitask-black.vercel.app
 - **Backend API**: https://unitask-backend.onrender.com
 - **Websocket**: wss://unitask-backend.onrender.com (for real-time chat)
 
@@ -179,7 +179,7 @@ To ensure your site works properly online:
 4. **Configure Custom Domain (Optional)**
    - Go to your project settings in Vercel
    - Navigate to the "Domains" section
-   - Add and configure your custom domain
+   - Current domain: https://unitask-black.vercel.app
 
 5. **Test Your Full Application**
    - Visit your Vercel URL
