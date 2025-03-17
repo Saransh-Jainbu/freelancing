@@ -1,15 +1,16 @@
-import API_URL from './config';
+import { API_URL } from '../constants';
 
-// Get all gigs for a user with error handling
+// Get user gigs
 export const getUserGigs = async (userId) => {
   try {
-    const response = await fetch(`${API_URL}/gigs/${userId}`);
-    const data = await response.json();
+    console.log(`[Gigs API] Fetching gigs for user:`, userId);
+    const response = await fetch(`${API_URL}/api/gigs/${userId}`);
     
     if (!response.ok) {
-      throw new Error(data.message || 'Failed to fetch gigs');
+      throw new Error(`Failed to fetch gigs: ${response.status} ${response.statusText}`);
     }
     
+    const data = await response.json();
     return data.gigs;
   } catch (error) {
     console.error('Error fetching user gigs:', error);
@@ -17,26 +18,22 @@ export const getUserGigs = async (userId) => {
   }
 };
 
-// Create a new gig with better error handling
-export const createGig = async (userId, gigData) => {
+// Create a new gig
+export const createGig = async (gigData) => {
   try {
-    const response = await fetch(`${API_URL}/gigs`, {
+    const response = await fetch(`${API_URL}/api/gigs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        userId,
-        ...gigData
-      }),
+      body: JSON.stringify(gigData)
     });
-
-    const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.message || 'Failed to create gig');
+      throw new Error(`Failed to create gig: ${response.status} ${response.statusText}`);
     }
     
+    const data = await response.json();
     return data.gig;
   } catch (error) {
     console.error('Error creating gig:', error);
@@ -45,96 +42,81 @@ export const createGig = async (userId, gigData) => {
 };
 
 // Update a gig
-export const updateGig = async (gigId, userId, gigData) => {
-  const response = await fetch(`${API_URL}/gigs/${gigId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ 
-      userId, 
-      title: gigData.title,
-      category: gigData.category,
-      price: gigData.price,
-      description: gigData.description,
-      status: gigData.status || 'active'
-    }),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to update gig');
+export const updateGig = async (gigId, gigData) => {
+  try {
+    const response = await fetch(`${API_URL}/api/gigs/${gigId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(gigData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to update gig: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.gig;
+  } catch (error) {
+    console.error('Error updating gig:', error);
+    throw error;
   }
-  
-  return data.gig;
-};
-
-// Toggle gig status
-export const toggleGigStatus = async (gigId, userId) => {
-  const response = await fetch(`${API_URL}/gigs/${gigId}/toggle-status`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userId }),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to toggle gig status');
-  }
-  
-  return data.gig;
 };
 
 // Delete a gig
 export const deleteGig = async (gigId, userId) => {
-  const response = await fetch(`${API_URL}/gigs/${gigId}`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ userId }),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to delete gig');
-  }
-  
-  return data;
-};
-
-// Get all public gigs for marketplace
-export const getMarketplaceGigs = async () => {
   try {
-    const response = await fetch(`${API_URL}/marketplace/gigs`);
+    const response = await fetch(`${API_URL}/api/gigs/${gigId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId })
+    });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch marketplace gigs');
+      throw new Error(`Failed to delete gig: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.deleted;
+  } catch (error) {
+    console.error('Error deleting gig:', error);
+    throw error;
+  }
+};
+
+// Get gig details
+export const getGigDetails = async (gigId) => {
+  try {
+    const response = await fetch(`${API_URL}/api/gigs/${gigId}/details`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch gig details: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.gig;
+  } catch (error) {
+    console.error('Error fetching gig details:', error);
+    throw error;
+  }
+};
+
+// Get marketplace gigs
+export const getMarketplaceGigs = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/marketplace/gigs`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch marketplace gigs: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
     return data.gigs;
   } catch (error) {
-    console.error('Marketplace fetch error:', error);
+    console.error('Error fetching marketplace gigs:', error);
     throw error;
   }
-};
-
-// Get single gig details
-export const getGigDetails = async (gigId) => {
-  const response = await fetch(`${API_URL}/gigs/${gigId}/details`);
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to fetch gig details');
-  }
-  
-  return data.gig;
 };
