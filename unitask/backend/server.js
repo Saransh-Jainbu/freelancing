@@ -13,7 +13,7 @@ const socketIo = require('socket.io');
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10); // Convert PORT to integer
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // Create HTTP server and Socket.io instance
@@ -1189,11 +1189,15 @@ const startServer = async (initialPort) => {
   };
 
   try {
-    const port = await findAvailablePort(initialPort);
+    // Ensure port is a valid number
+    let port = typeof initialPort === 'string' ? parseInt(initialPort, 10) : initialPort;
+    port = isNaN(port) || port < 0 || port >= 65536 ? 5000 : port;
+    
+    port = await findAvailablePort(port);
     console.log(`Server running on port ${port}`);
     
     // Update environment variable for other parts of the application
-    process.env.PORT = port;
+    process.env.PORT = String(port);
     process.env.SERVER_URL = `http://localhost:${port}`;
   } catch (error) {
     console.error('Failed to start server:', error);

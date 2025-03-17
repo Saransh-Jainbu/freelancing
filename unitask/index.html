@@ -4,12 +4,10 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Add this for environment variable access -->
+    <!-- Force production API URL -->
     <script>
-      window.__ENV__ = {
-        API_URL: "%VITE_API_URL%"
-      };
-      console.log('[HTML] Environment:', window.__ENV__);
+      window.API_URL = "https://unitask-backend.onrender.com";
+      console.log('[HTML] Forced API URL:', window.API_URL);
     </script>
     <title>UniTask</title>
   </head>
