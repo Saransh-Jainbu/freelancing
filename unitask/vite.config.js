@@ -6,7 +6,6 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Force the API URL to be the deployed URL
     'import.meta.env.VITE_API_URL': JSON.stringify('https://unitask-backend.onrender.com'),
   },
   resolve: {
@@ -21,5 +20,8 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+  },
+  css: {
+    postcss: './postcss.config.cjs',
   }
 });
