@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: unitask-backend
+    env: node
+    region: oregon  # Change to your preferred region
+    rootDir: backend  # Explicitly set the root directory to backend folder
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: SERVER_URL
+        sync: false  # Prompt for this value during deployment
+      - key: FRONTEND_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false

@@ -30,11 +30,17 @@ const io = socketIo(server, {
 app.use(express.json());
 app.use(cors({
   origin: FRONTEND_URL,
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 // Initialize passport
 app.use(passport.initialize());
+
+// Health check route (add near the top with other routes)
+const healthRoutes = require('./routes/health');
+app.use('/api/health', healthRoutes);
 
 // Database connection
 const pool = new Pool({
