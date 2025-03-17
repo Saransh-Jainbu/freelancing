@@ -61,7 +61,33 @@ const MyGigs = () => {
   };
 
   const handleToggleGigStatus = async (gig) => {
-    // Add this method if it was in the original implementation
+    try {
+      // Call API to toggle the gig status
+      const response = await fetch(`${API_URL}/api/gigs/${gig.id}/toggle-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: currentUser.id })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update gig in local state
+        setGigs(prevGigs => 
+          prevGigs.map(g => 
+            g.id === gig.id ? { ...g, status: g.status === 'active' ? 'paused' : 'active' } : g
+          )
+        );
+        setActionMenuOpen(null);
+      } else {
+        setError("Failed to update gig status. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error toggling gig status:", error);
+      setError("Failed to update gig status. Please try again.");
+    }
   };
 
   const handleGigAdded = (newGig) => {
