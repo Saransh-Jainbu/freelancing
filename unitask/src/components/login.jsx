@@ -101,17 +101,15 @@ const LoginPage = () => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${API_URL}/auth/google`;
+    const authUrl = `${API_URL}/api/auth/google`;
+    console.log('[Login] Redirecting for Google auth:', authUrl);
+    window.location.href = authUrl;
   };
 
   const handleGithubLogin = () => {
-    try {
-      console.log('Redirecting to GitHub OAuth...');
-      window.location.href = `${API_URL}/auth/github`;
-    } catch (error) {
-      console.error('GitHub redirect error:', error);
-      setError('Failed to connect to authentication server. Please try again later.');
-    }
+    const authUrl = `${API_URL}/api/auth/github`;
+    console.log('[Login] Redirecting for GitHub auth:', authUrl);
+    window.location.href = authUrl;
   };
 
   return (

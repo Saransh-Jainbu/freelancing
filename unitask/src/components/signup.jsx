@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, Mail, Lock, User, Github, Phone, Calendar, Building2, Globe, Loader, AlertCircle } from 'lucide-react';
 import { registerUser } from '../api/auth';
 import { useNavigate, Link } from 'react-router-dom';
+import { apiRequest } from '../api/client';
 import API_URL from '../api/config';
 
 const SignupPage = () => {
@@ -115,13 +116,13 @@ const SignupPage = () => {
 
   const handleGoogleSignup = () => {
     const authUrl = `${API_URL}/api/auth/google`;
-    console.log('Redirecting for Google auth:', authUrl);
+    console.log('[Signup] Redirecting for Google auth:', authUrl);
     window.location.href = authUrl;
   };
 
   const handleGithubSignup = () => {
     const authUrl = `${API_URL}/api/auth/github`;
-    console.log('Redirecting for GitHub auth:', authUrl);
+    console.log('[Signup] Redirecting for GitHub auth:', authUrl);
     window.location.href = authUrl;
   };
 

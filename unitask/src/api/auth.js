@@ -1,27 +1,13 @@
-import API_URL from './config';
+import { apiRequest } from './client';
 
 // Register a new user
 export const registerUser = async (userData) => {
-  const apiEndpoint = `${API_URL}/api/auth/register`;
-  console.log(`[Auth API] Making registration request to: ${apiEndpoint}`, userData);
-  
   try {
-    const response = await fetch(apiEndpoint, {
+    console.log(`[Auth API] Making registration request with userData:`, userData);
+    const data = await apiRequest('/api/auth/register', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-      mode: 'cors'
+      body: JSON.stringify(userData)
     });
-
-    console.log(`[Auth API] Registration response status:`, response.status);
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Registration failed');
-    }
-    
     return data;
   } catch (error) {
     console.error('[Auth API] Registration error:', error);
@@ -31,25 +17,15 @@ export const registerUser = async (userData) => {
 
 // Login user
 export const loginUser = async (email, password) => {
-  console.log(`Making login request to: ${API_URL}/api/auth/login`);
   try {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    console.log(`[Auth API] Making login request for email:`, email);
+    const data = await apiRequest('/api/auth/login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password })
     });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
-    }
-    
     return data.user;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[Auth API] Login error:', error);
     throw error;
   }
 };

@@ -1,33 +1,28 @@
-import API_URL from './config';
+import { apiRequest } from './client';
 
-// Get user profile by user ID
+// Get user profile
 export const getProfile = async (userId) => {
-  const response = await fetch(`${API_URL}/profile/${userId}`);
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to fetch profile');
+  try {
+    console.log(`[Profile API] Fetching profile for user:`, userId);
+    const data = await apiRequest(`/api/profile/${userId}`);
+    return data.profile;
+  } catch (error) {
+    console.error('[Profile API] Profile fetch error:', error);
+    throw error;
   }
-  
-  return data.profile;
 };
 
-// Update user profile
+// Update profile
 export const updateProfile = async (userId, profileData) => {
-  const response = await fetch(`${API_URL}/profile/${userId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(profileData),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || 'Failed to update profile');
+  try {
+    console.log(`[Profile API] Updating profile for user:`, userId);
+    const data = await apiRequest(`/api/profile/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    });
+    return data.profile;
+  } catch (error) {
+    console.error('[Profile API] Profile update error:', error);
+    throw error;
   }
-  
-  return data.profile;
 };
