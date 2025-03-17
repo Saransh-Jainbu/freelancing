@@ -1,7 +1,7 @@
 services:
   - type: web
     name: unitask-backend
-    env: node
+    runtime: node
     region: oregon  # Change to your preferred region
     rootDir: backend  # Explicitly set the root directory to backend folder
     buildCommand: npm install
