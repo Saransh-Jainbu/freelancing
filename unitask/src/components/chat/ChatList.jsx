@@ -55,13 +55,13 @@ const ChatList = ({ conversations, selectedConversation, onSelectConversation, o
   
   // Helper function to check if the other participant is online
   const isParticipantOnline = (conversation) => {
-    if (!conversation?.participants) return false;
+    if (!conversation?.participants || !onlineUsers || !onlineUsers.length) return false;
     
     const otherParticipant = conversation.participants.find(
       p => p.id !== currentUser.id
     );
     
-    return otherParticipant && onlineUsers.includes(otherParticipant.id);
+    return otherParticipant && onlineUsers.includes(otherParticipant.id.toString());
   };
 
   return (

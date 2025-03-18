@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { deleteConversation, markMessagesAsRead } from '../../api/chat';
 import { useNavigate } from 'react-router-dom';
 
-const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDeleteConversation, onlineUsers }) => {
+const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDeleteConversation, onlineUsers, socket }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,22 +20,22 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
     scrollToBottom();
   }, [messages]);
 
-  // Add useEffect to mark messages as read when conversation is opened
+  // Add useEffect to mark messages as read when messages are updated
   useEffect(() => {
     // Get unread messages from other users
     const unreadMessages = messages.filter(
       msg => msg.sender_id !== currentUser.id && !msg.is_read
     );
     
-    if (unreadMessages.length > 0) {
-      // Mark messages as read
-      markMessagesAsRead(
-        conversation.id,
-        unreadMessages.map(msg => msg.id),
-        currentUser.id
-      ).catch(err => console.error('Error marking messages as read:', err));
+    if (unreadMessages.length > 0 && socket) {
+      // Mark messages as read using socket
+      socket.emit('mark-messages-read', {
+        conversationId: conversation.id,
+        messageIds: unreadMessages.map(msg => msg.id),
+        userId: currentUser.id
+      });
     }
-  }, [messages, conversation.id, currentUser.id]);
+  }, [messages, conversation.id, currentUser.id, socket]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -230,8 +230,9 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
             </div>
           ))
         )}
+        
         {typing && (
-          <div className="flex justify-start"></div>
+          <div className="flex justify-start">
             <div className="bg-gray-800 text-gray-300 p-3 rounded-lg max-w-xs rounded-bl-none">
               <div className="flex gap-1">
                 <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -243,9 +244,10 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
         )}
         <div ref={messagesEndRef} />
       </div>
+      
       <div className="p-4 border-t border-white/10">
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm flex items-center gap-2"></div>
+          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm flex items-center gap-2">
             <AlertCircle className="w-5 h-5" />
             {error}
           </div>
@@ -264,7 +266,7 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
             onClick={handleSendMessage}
             disabled={loading || !message.trim()}
             className={`p-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity flex-shrink-0 ${loading || !message.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
-          ></button>
+          >
             {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>
         </div>
@@ -280,6 +282,7 @@ ChatWindow.propTypes = {
   currentUser: PropTypes.object.isRequired,
   onDeleteConversation: PropTypes.func,
   onlineUsers: PropTypes.array,
+  socket: PropTypes.object
 };
 
 export default ChatWindow;

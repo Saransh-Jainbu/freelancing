@@ -212,11 +212,12 @@ io.on('connection', (socket) => {
   // Handle user coming online
   socket.on('user-online', (userId) => {
     if (!userId) return;
+    userId = userId.toString();
     console.log(`User ${userId} connected with socket ${socket.id}`);
     
     // Store the user's online status
-    onlineUsers.set(userId.toString(), socket.id);
-    userSockets.set(socket.id, userId.toString());
+    onlineUsers.set(userId, socket.id);
+    userSockets.set(socket.id, userId);
     
     // Update user's last_active timestamp in database
     updateUserLastActive(userId).catch(err => 
@@ -230,11 +231,20 @@ io.on('connection', (socket) => {
   // Handle ping to keep user online
   socket.on('ping', (userId) => {
     if (!userId) return;
+    userId = userId.toString();
     
-    // Update last_active timestamp
-    updateUserLastActive(userId).catch(err => 
-      console.error(`Error updating last_active on ping for user ${userId}:`, err)
-    );
+    // Refresh their online status
+    if (userSockets.get(socket.id) === userId) {
+      onlineUsers.set(userId, socket.id);
+      
+      // Update last_active timestamp (but less frequently to reduce DB load)
+      const lastUpdate = userLastUpdateTimes.get(userId) || 0;
+      const now = Date.now();
+      if (now - lastUpdate > 5 * 60 * 1000) { // 5 minutes between DB updates
+        updateUserLastActive(userId);
+        userLastUpdateTimes.set(userId, now);
+      }
+    }
   });
   
   // Handle user going offline
@@ -242,39 +252,66 @@ io.on('connection', (socket) => {
     const userId = userSockets.get(socket.id);
     
     if (userId) {
-      console.log(`User ${userId} disconnected`);
+      console.log(`User ${userId} disconnected (socket: ${socket.id})`);
       onlineUsers.delete(userId);
       userSockets.delete(socket.id);
       
       // Broadcast updated online users list
       io.emit('online-users', Array.from(onlineUsers.keys()));
+      
+      // Update user's last_active timestamp in database
+      updateUserLastActive(userId).catch(err => 
+        console.error(`Error updating last_active for user ${userId} on disconnect:`, err)
+      );
     }
-  });
-  
-  // Handle user explicitly going offline
-  socket.on('user-offline', (userId) => {
-    if (!userId) return;
-    
-    console.log(`User ${userId} went offline`);
-    onlineUsers.delete(userId.toString());
-    
-    // Remove socket mapping
-    const socketId = onlineUsers.get(userId.toString());
-    if (socketId) {
-      userSockets.delete(socketId);
-    }
-    
-    // Broadcast updated online users list
-    io.emit('online-users', Array.from(onlineUsers.keys()));
   });
   
   // Handle joining a conversation room
-  socket.on('join-conversation', (conversationId) => {
-    if (!conversationId) return;
+  socket.on('join-conversation', async (data) => {
+    if (!data || !data.conversationId) return;
     
+    const { conversationId, userId } = data;
     const roomName = `conversation-${conversationId}`;
+    
     socket.join(roomName);
     console.log(`Socket ${socket.id} joined room ${roomName}`);
+    
+    // Mark unread messages as read when joining conversation
+    if (userId) {
+      try {
+        // Get IDs of unread messages sent by others
+        const unreadMessages = await query(
+          `SELECT id FROM messages 
+           WHERE conversation_id = $1 
+           AND sender_id != $2 
+           AND is_read = false`,
+          [conversationId, userId]
+        );
+        
+        if (unreadMessages.rows.length > 0) {
+          const messageIds = unreadMessages.rows.map(msg => msg.id);
+          
+          // Mark them as read
+          await query(
+            `UPDATE messages 
+             SET is_read = true, read_at = NOW() 
+             WHERE id = ANY($1::int[])`,
+            [messageIds]
+          );
+          
+          // Emit read receipt event to the conversation room
+          io.to(roomName).emit('message-read', {
+            messageIds,
+            userId,
+            conversationId
+          });
+          
+          console.log(`Marked ${messageIds.length} messages as read in conversation ${conversationId}`);
+        }
+      } catch (error) {
+        console.error('Error marking messages as read on join:', error);
+      }
+    }
   });
   
   // Handle sending a message
@@ -294,6 +331,24 @@ io.on('connection', (socket) => {
       // Update conversation with last message
       await updateConversationLastMessage(conversationId, content, senderId);
       
+      // Check if other participants are not in the conversation
+      const participants = await getConversationParticipants(conversationId);
+      for (const participant of participants) {
+        if (participant.user_id != senderId) {
+          const participantId = participant.user_id.toString();
+          const isOnline = onlineUsers.has(participantId);
+          const userSocketId = onlineUsers.get(participantId);
+          
+          // If participant is not in the conversation room, send a push notification
+          if (isOnline) {
+            const socket = io.sockets.sockets.get(userSocketId);
+            if (socket && !socket.rooms.has(`conversation-${conversationId}`)) {
+              // Send notification to this specific socket
+              socket.emit('chat-notification', savedMessage);
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -308,7 +363,15 @@ io.on('connection', (socket) => {
       }
       
       // Update messages in database
-      await markMessagesAsRead(conversationId, messageIds, userId);
+      await query(
+        `UPDATE messages 
+         SET is_read = true, read_at = NOW() 
+         WHERE id = ANY($1::int[]) 
+         AND conversation_id = $2 
+         AND sender_id != $3 
+         AND is_read = false`,
+        [messageIds, conversationId, userId]
+      );
       
       // Emit read receipt to conversation room
       io.to(`conversation-${conversationId}`).emit('message-read', {
@@ -323,6 +386,9 @@ io.on('connection', (socket) => {
   });
 });
 
+// Store last timestamp we updated user's last_active in DB
+const userLastUpdateTimes = new Map();
+
 // Helper function to update user's last_active timestamp
 async function updateUserLastActive(userId) {
   try {
@@ -335,6 +401,20 @@ async function updateUserLastActive(userId) {
   } catch (error) {
     console.error('Error updating last_active:', error);
     return false;
+  }
+}
+
+// Helper function to get conversation participants
+async function getConversationParticipants(conversationId) {
+  try {
+    const result = await query(
+      'SELECT user_id FROM conversation_participants WHERE conversation_id = $1',
+      [conversationId]
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('Error getting conversation participants:', error);
+    return [];
   }
 }
 

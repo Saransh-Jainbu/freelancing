@@ -54,6 +54,8 @@ const ChatPage = () => {
     
     socketInstance.on('connect', () => {
       console.log('[Chat] Socket connected:', socketInstance.id);
+      // Immediately emit user-online event when connected
+      socketInstance.emit('user-online', currentUser.id);
     });
     
     socketInstance.on('disconnect', () => {
@@ -111,9 +113,12 @@ const ChatPage = () => {
         
         setMessages(conversationMessages);
         
-        // Join socket room for this conversation
+        // Join socket room for this conversation with userId for read receipts
         if (socket) {
-          socket.emit('join-conversation', selectedConversation.id);
+          socket.emit('join-conversation', {
+            conversationId: selectedConversation.id,
+            userId: currentUser.id
+          });
         }
         setError(null);
       } catch (err) {
@@ -196,9 +201,6 @@ const ChatPage = () => {
   useEffect(() => {
     if (!socket || !currentUser) return;
     
-    // Emit user online status when connected
-    socket.emit('user-online', currentUser.id);
-    
     // Setup ping interval to maintain online status
     const pingInterval = setInterval(() => {
       socket.emit('ping', currentUser.id);
@@ -211,10 +213,11 @@ const ChatPage = () => {
     });
     
     // Handle message read receipts
-    socket.on('message-read', ({ messageId, conversationId }) => {
+    socket.on('message-read', ({ messageIds, conversationId }) => {
+      console.log('[Chat] Message read event:', { messageIds, conversationId });
       setMessages(prevMessages => {
         return prevMessages.map(msg => {
-          if (msg.id === messageId || (Array.isArray(messageId) && messageId.includes(msg.id))) {
+          if (messageIds.includes(msg.id)) {
             return { ...msg, is_read: true };
           }
           return msg;
@@ -223,8 +226,6 @@ const ChatPage = () => {
     });
     
     return () => {
-      // Emit user offline event when component unmounts
-      socket.emit('user-offline', currentUser.id);
       clearInterval(pingInterval);
       socket.off('online-users');
       socket.off('message-read');
@@ -235,6 +236,14 @@ const ChatPage = () => {
   const handleSelectConversation = (conversation) => {
     setSelectedConversation(conversation);
     navigate(`/chat/${conversation.id}`);
+    
+    // Join the conversation room with user ID for read receipts
+    if (socket) {
+      socket.emit('join-conversation', {
+        conversationId: conversation.id,
+        userId: currentUser.id
+      });
+    }
     
     // Reset unread count on selection
     setConversations(prevConversations => {
@@ -339,6 +348,7 @@ const ChatPage = () => {
               onSelectConversation={handleSelectConversation}
               onNewChat={() => setIsNewChatModalOpen(true)}
               currentUser={currentUser}
+              onlineUsers={onlineUsers}
             />
           </div>
           
@@ -351,6 +361,7 @@ const ChatPage = () => {
                 currentUser={currentUser}
                 onDeleteConversation={handleDeleteConversation}
                 onlineUsers={onlineUsers}
+                socket={socket}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400">
