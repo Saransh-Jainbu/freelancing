@@ -21,7 +21,29 @@ const ChatPage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(null);
   
+  // Request notification permission
+  useEffect(() => {
+    // Check if notifications are supported by the browser
+    if (!("Notification" in window)) {
+      console.log("This browser does not support desktop notifications");
+      return;
+    }
+
+    // Check if permission is already granted
+    if (Notification.permission === "granted") {
+      setNotificationPermission("granted");
+    } else if (Notification.permission !== "denied") {
+      // Request permission
+      Notification.requestPermission().then(permission => {
+        setNotificationPermission(permission);
+      });
+    } else {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
   // Initialize socket connection
   useEffect(() => {
     if (!currentUser) return;
@@ -99,9 +121,42 @@ const ChatPage = () => {
     loadMessages();
   }, [currentUser, selectedConversation, socket]);
   
+  // Show notification for new messages
+  const showNotification = (message, sender) => {
+    // Only show notifications if permission is granted and conversation is not selected
+    if (notificationPermission === "granted" && 
+        (!selectedConversation || selectedConversation.id !== message.conversation_id) &&
+        message.sender_id !== currentUser.id) {
+      try {
+        // Find the sender's info from conversations
+        const conversation = conversations.find(c => c.id === message.conversation_id);
+        const senderName = sender?.display_name || "Someone";
+        
+        const notification = new Notification("New message from UniTask", {
+          body: `${senderName}: ${message.content}`,
+          icon: "/favicon.ico"
+        });
+        
+        // When notification is clicked, navigate to the conversation
+        notification.onclick = () => {
+          window.focus();
+          navigate(`/chat/${message.conversation_id}`);
+          notification.close();
+        };
+        
+        // Auto close after 5 seconds
+        setTimeout(() => {
+          notification.close();
+        }, 5000);
+      } catch (error) {
+        console.error("Error showing notification:", error);
+      }
+    }
+  };
+  
   // Listen for new messages
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !currentUser) return;
     
     const handleNewMessage = (message) => {
       setMessages(prevMessages => [...prevMessages, message]);
@@ -110,6 +165,9 @@ const ChatPage = () => {
       setConversations(prevConversations => {
         return prevConversations.map(conv => {
           if (conv.id === message.conversation_id) {
+            // Show notification for new message
+            showNotification(message, message.sender);
+            
             return {
               ...conv,
               last_message: message.content,
@@ -126,7 +184,7 @@ const ChatPage = () => {
     return () => {
       socket.off('new-message', handleNewMessage);
     };
-  }, [socket, currentUser]);
+  }, [socket, currentUser, conversations, selectedConversation, notificationPermission, navigate]);
   
   // Handle new message submission
   const handleSendMessage = (content) => {
@@ -192,41 +250,83 @@ const ChatPage = () => {
     }
   };
 
+  // Request notification permission again if denied
+  const requestNotificationPermission = () => {
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission().then(permission => {
+        setNotificationPermission(permission);
+      });
+    }
+  };
+
   return (
-    <div className="chat-page">
-      <ChatList
-        conversations={conversations}
-        selectedConversation={selectedConversation}
-        onSelectConversation={setSelectedConversation}
-        onNewChat={() => setIsNewChatModalOpen(true)}
-      />
-      <ChatWindow
-        conversation={selectedConversation}
-        messages={messages}
-        onSendMessage={handleSendMessage}
-      />
-      {isNewChatModalOpen && (
-        <div className="new-chat-modal">
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-          {searchLoading ? (
-            <p>Loading...</p>
-          ) : (
-            <ul>
-              {searchResults.map(user => (
-                <li key={user.id} onClick={() => handleStartConversation(user.id)}>
-                  {user.name}
-                </li>
-              ))}
-            </ul>
-          )}
-          <button onClick={() => setIsNewChatModalOpen(false)}>Close</button>
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {notificationPermission === "denied" && (
+          <div className="mb-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3 flex justify-between items-center">
+            <p className="text-yellow-200">
+              Enable notifications to get alerts when new messages arrive.
+            </p>
+            <button 
+              onClick={requestNotificationPermission}
+              className="px-3 py-1 bg-yellow-500/30 rounded-md hover:bg-yellow-500/40 transition-colors"
+            >
+              Enable
+            </button>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-10rem)]">
+          <div className="lg:col-span-1 bg-gray-900/50 rounded-xl border border-white/10 overflow-hidden">
+            <ChatList
+              conversations={conversations}
+              selectedConversation={selectedConversation}
+              onSelectConversation={setSelectedConversation}
+              onNewChat={() => setIsNewChatModalOpen(true)}
+              currentUser={currentUser}
+            />
+          </div>
+          
+          <div className="lg:col-span-3 bg-gray-900/50 rounded-xl border border-white/10 overflow-hidden">
+            {selectedConversation ? (
+              <ChatWindow
+                conversation={selectedConversation}
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                currentUser={currentUser}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                Select a conversation or start a new one
+              </div>
+            )}
+          </div>
         </div>
-      )}
+        
+        {/* New chat modal implementation here */}
+        {isNewChatModalOpen && (
+          <div className="new-chat-modal">
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+            {searchLoading ? (
+              <p>Loading...</p>
+            ) : (
+              <ul>
+                {searchResults.map(user => (
+                  <li key={user.id} onClick={() => handleStartConversation(user.id)}>
+                    {user.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button onClick={() => setIsNewChatModalOpen(false)}>Close</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -15,6 +15,7 @@ import OAuthCallback from './components/OAuthCallback';
 import LandingPage from './components/LandingPage';
 import MarketplacePage from './components/marketplace';
 import GigDetails from "./components/gigs/GigDetails";
+import ChatNotificationService from './components/chat/ChatNotificationService';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -49,66 +50,71 @@ const AppRoutes = () => {
   const { currentUser } = useAuth();
 
   return (
-    <Routes>
-      {/* Landing page as home route */}
-      <Route path="/" element={<LandingPage />} />
+    <>
+      {/* Global notification service - only active when user is logged in */}
+      {currentUser && <ChatNotificationService />}
+      
+      <Routes>
+        {/* Landing page as home route */}
+        <Route path="/" element={<LandingPage />} />
 
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/oauth-callback" element={<OAuthCallback />} />
-      
-      {/* Protected routes with dynamic path support */}
-      <Route path="/profile" element={
-        <ProtectedRoute>
-          <ProfilePage />
-        </ProtectedRoute>
-      } />
-      <Route path="/profile/:userId" element={
-        <ProtectedRoute>
-          <ProfilePage />
-        </ProtectedRoute>
-      } />
-      
-      {/* Other protected routes */}
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <DashboardPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/my-gigs" element={
-        <ProtectedRoute>
-          <MyGigsPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/chat" element={
-        <ProtectedRoute>
-          <ChatPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/chat/:conversationId" element={
-        <ProtectedRoute>
-          <ChatPage />
-        </ProtectedRoute>
-      } />
-      
-      {/* Marketplace routes */}
-      <Route path="/marketplace" element={
-        <ProtectedRoute>
-          <MarketplacePage />
-        </ProtectedRoute>
-      } />
-      <Route path="/gig/:gigId" element={
-        <ProtectedRoute>
-          <GigDetails />
-        </ProtectedRoute>
-      } />
-      
-      {/* Default redirect - send to landing page if not logged in, dashboard if logged in */}
-      <Route path="*" element={
-        currentUser ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
-      } />
-    </Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/oauth-callback" element={<OAuthCallback />} />
+        
+        {/* Protected routes with dynamic path support */}
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile/:userId" element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        } />
+        
+        {/* Other protected routes */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/my-gigs" element={
+          <ProtectedRoute>
+            <MyGigsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/chat" element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/chat/:conversationId" element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        } />
+        
+        {/* Marketplace routes */}
+        <Route path="/marketplace" element={
+          <ProtectedRoute>
+            <MarketplacePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/gig/:gigId" element={
+          <ProtectedRoute>
+            <GigDetails />
+          </ProtectedRoute>
+        } />
+        
+        {/* Default redirect - send to landing page if not logged in, dashboard if logged in */}
+        <Route path="*" element={
+          currentUser ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
+        } />
+      </Routes>
+    </>
   );
 };
 
