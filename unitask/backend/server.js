@@ -1256,6 +1256,34 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
     });
   } catch (error) {
     console.error('[Server] Error uploading image:', error);
+    
+    // Specific error handling for common Azure issues
+    if (error.message && error.message.includes('container already exists')) {
+      console.log('[Server] Container already exists - this is not actually an error');
+      // Despite the error, we still want to upload the file
+      try {
+        const uploadResult = await uploadToAzure(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype,
+          true // Skip container creation
+        );
+        
+        return res.status(200).json({
+          success: true,
+          fileUrl: uploadResult.url,
+          blobUrl: uploadResult.blobUrl,
+          blobName: uploadResult.blobName
+        });
+      } catch (retryError) {
+        console.error('[Server] Error in retry upload:', retryError);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error uploading image after retry: ' + retryError.message
+        });
+      }
+    }
+    
     res.status(500).json({ 
       success: false, 
       message: 'Error uploading image: ' + error.message

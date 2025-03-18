@@ -13,13 +13,13 @@ export const uploadImage = async (file) => {
       body: formData,
     });
     
+    const data = await response.json();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Upload API] Upload failed: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      console.error(`[Upload API] Upload failed: ${response.status} ${response.statusText}`, data);
+      throw new Error(data.message || `Upload failed: ${response.status}`);
     }
     
-    const data = await response.json();
     console.log(`[Upload API] Image uploaded successfully:`, data);
     return data;
   } catch (error) {
@@ -45,17 +45,17 @@ export const updateProfileAvatar = async (userId, avatarUrl, oldAvatarUrl) => {
       },
       body: JSON.stringify({ 
         avatarUrl,
-        oldAvatarUrl // Include old URL so server can delete it from Azure
+        oldAvatarUrl
       })
     });
     
+    const data = await response.json();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Upload API] Avatar update failed: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`Failed to update avatar: ${response.status} ${response.statusText}`);
+      console.error(`[Upload API] Avatar update failed: ${response.status} ${response.statusText}`, data);
+      throw new Error(data.message || `Failed to update avatar: ${response.status}`);
     }
     
-    const data = await response.json();
     return data;
   } catch (error) {
     console.error('[Upload API] Error updating avatar:', error);

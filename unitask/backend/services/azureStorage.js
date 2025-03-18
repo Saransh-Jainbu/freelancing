@@ -48,8 +48,9 @@ function generateSasToken(blobName) {
  */
 async function uploadToAzure(fileBuffer, originalFilename, contentType) {
   try {
-    // Check if container exists, if not, create it
-    await ensureContainerExists();
+    // We won't try to create the container every time,
+    // assume it already exists from deployment setup
+    console.log(`Using existing container "${containerName}" for uploads`);
     
     // Generate a unique name for the blob
     const extension = originalFilename.split('.').pop();
@@ -118,34 +119,45 @@ async function deleteFromAzure(blobUrl) {
 }
 
 /**
- * Ensure the blob container exists
- * @returns {Promise<void>}
+ * Check if the container exists (but don't try to create it)
+ * @returns {Promise<Boolean>} - True if container exists
  */
-async function ensureContainerExists() {
+async function checkContainerExists() {
   try {
-    // Check if container exists using try-catch approach
-    try {
-      const containers = await blobServiceClient.listContainers();
-      const containerExists = containers.some(container => container.name === containerName);
-      
-      if (!containerExists) {
-        console.log(`Creating container "${containerName}"...`);
-        // FIXED: Use 'None' instead of 'private' for access level
-        const createContainerResponse = await containerClient.create();
-        console.log(`Container "${containerName}" created successfully`, createContainerResponse);
-      }
-    } catch (err) {
-      // If container doesn't exist, create it
-      console.log(`Attempting to create container "${containerName}"...`);
-      // FIXED: Remove access parameter entirely as it defaults to private
-      const createContainerResponse = await containerClient.create();
-      console.log(`Container "${containerName}" created successfully`, createContainerResponse);
+    console.log(`Checking if container "${containerName}" exists...`);
+    
+    // List containers and check if our container is in the list
+    const containersList = [];
+    
+    // List containers in the account
+    let iter = blobServiceClient.listContainers();
+    let containerItem = await iter.next();
+    
+    while (!containerItem.done) {
+      containersList.push(containerItem.value.name);
+      containerItem = await iter.next();
     }
+    
+    const containerExists = containersList.includes(containerName);
+    
+    if (containerExists) {
+      console.log(`Container "${containerName}" exists and is ready for use`);
+    } else {
+      console.log(`Container "${containerName}" does not exist. Please create it in the Azure portal`);
+    }
+    
+    return containerExists;
   } catch (error) {
-    console.error('Error ensuring container exists:', error);
-    throw error;
+    console.error('Error checking container:', error);
+    // Even if there's an error checking, we'll try to use the container anyway
+    return true;
   }
 }
+
+// Check container on service initialization (no need to create it)
+checkContainerExists()
+  .then(() => console.log('Azure Blob Storage service initialized'))
+  .catch(err => console.error('Failed to initialize Azure Blob Storage service:', err));
 
 module.exports = {
   uploadToAzure,
