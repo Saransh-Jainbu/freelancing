@@ -150,8 +150,15 @@ const ChatPage = () => {
     
     try {
       setSearchLoading(true);
-      const users = await searchUsers(query, currentUser.id);
-      setSearchResults(users);
+      // IMPORTANT: Use the API directly with the /api prefix
+      const response = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(query || '')}&currentUserId=${currentUser.id}`);
+      
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      setSearchResults(data.users);
     } catch (err) {
       console.error('Search failed:', err);
     } finally {
@@ -173,15 +180,3 @@ const ChatPage = () => {
       // Close modal
       setIsNewChatModalOpen(false);
       
-      // Update URL
-      navigate(`/chat/${conversation.id}`);
-    } catch (err) {
-      console.error('Failed to start conversation:', err);
-      setError('Failed to start conversation. Please try again.');
-    }
-  };
-  
-  // ...existing code for rendering the component...
-};
-
-export default ChatPage;
