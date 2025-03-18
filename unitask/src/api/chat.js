@@ -87,7 +87,8 @@ export const deleteConversation = async (conversationId) => {
 export const searchUsers = async (query, currentUserId) => {
   try {
     console.log(`[Chat API] Searching users with query:`, query);
-    const response = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(query)}&currentUserId=${currentUserId}`);
+    // FIX: Add /api prefix to the endpoint
+    const response = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(query || '')}&currentUserId=${currentUserId}`);
     
     if (!response.ok) {
       throw new Error(`Failed to search users: ${response.status} ${response.statusText}`);
