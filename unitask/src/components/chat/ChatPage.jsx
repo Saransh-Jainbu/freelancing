@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContextValue';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getUserConversations, getConversationMessages, searchUsers, createConversation } from '../../api/chat';
+import { getUserConversations, getConversationMessages, createConversation } from '../../api/chat';
 import { io } from 'socket.io-client';
 import ChatList from './ChatList';
 import ChatWindow from './ChatWindow';
 import { API_URL } from '../../constants';
+import NewChatModal from './NewChatModal';
+import { AlertCircle, Loader } from 'lucide-react';
+import { showChatNotification, getNotificationPermission, requestNotificationPermission } from '../../services/notificationService';
 
 const ChatPage = () => {
   const { currentUser } = useAuth();
@@ -18,10 +21,7 @@ const ChatPage = () => {
   const [error, setError] = useState(null);
   const [socket, setSocket] = useState(null);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [notificationPermission, setNotificationPermission] = useState(null);
+  const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
   
   // Request notification permission
   useEffect(() => {
@@ -36,8 +36,8 @@ const ChatPage = () => {
       setNotificationPermission("granted");
     } else if (Notification.permission !== "denied") {
       // Request permission
-      Notification.requestPermission().then(permission => {
-        setNotificationPermission(permission);
+      requestNotificationPermission().then(granted => {
+        setNotificationPermission(granted ? "granted" : "denied");
       });
     } else {
       setNotificationPermission(Notification.permission);
@@ -52,11 +52,11 @@ const ChatPage = () => {
     setSocket(socketInstance);
     
     socketInstance.on('connect', () => {
-      console.log('Socket connected:', socketInstance.id);
+      console.log('[Chat] Socket connected:', socketInstance.id);
     });
     
     socketInstance.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('[Chat] Socket disconnected');
     });
     
     return () => {
@@ -84,8 +84,9 @@ const ChatPage = () => {
             navigate('/chat');
           }
         }
+        setError(null);
       } catch (err) {
-        console.error('Failed to load conversations:', err);
+        console.error('[Chat] Failed to load conversations:', err);
         setError('Failed to load your conversations. Please try again.');
       } finally {
         setLoading(false);
@@ -101,6 +102,7 @@ const ChatPage = () => {
       if (!currentUser || !selectedConversation) return;
       
       try {
+        setLoading(true);
         const conversationMessages = await getConversationMessages(
           selectedConversation.id,
           currentUser.id
@@ -112,70 +114,63 @@ const ChatPage = () => {
         if (socket) {
           socket.emit('join-conversation', selectedConversation.id);
         }
+        setError(null);
       } catch (err) {
-        console.error('Failed to load messages:', err);
+        console.error('[Chat] Failed to load messages:', err);
         setError('Failed to load messages. Please try again.');
+      } finally {
+        setLoading(false);
       }
     };
     
     loadMessages();
   }, [currentUser, selectedConversation, socket]);
   
-  // Show notification for new messages
-  const showNotification = (message, sender) => {
-    // Only show notifications if permission is granted and conversation is not selected
-    if (notificationPermission === "granted" && 
-        (!selectedConversation || selectedConversation.id !== message.conversation_id) &&
-        message.sender_id !== currentUser.id) {
-      try {
-        // Find the sender's info from conversations
-        const conversation = conversations.find(c => c.id === message.conversation_id);
-        const senderName = sender?.display_name || "Someone";
-        
-        const notification = new Notification("New message from UniTask", {
-          body: `${senderName}: ${message.content}`,
-          icon: "/favicon.ico"
-        });
-        
-        // When notification is clicked, navigate to the conversation
-        notification.onclick = () => {
-          window.focus();
-          navigate(`/chat/${message.conversation_id}`);
-          notification.close();
-        };
-        
-        // Auto close after 5 seconds
-        setTimeout(() => {
-          notification.close();
-        }, 5000);
-      } catch (error) {
-        console.error("Error showing notification:", error);
-      }
-    }
-  };
-  
   // Listen for new messages
   useEffect(() => {
     if (!socket || !currentUser) return;
     
     const handleNewMessage = (message) => {
-      setMessages(prevMessages => [...prevMessages, message]);
+      console.log('[Chat] Received new message:', message);
       
-      // Update conversation's last message
+      // Add message to current messages if for selected conversation
+      if (selectedConversation && selectedConversation.id === message.conversation_id) {
+        setMessages(prevMessages => [...prevMessages, message]);
+      }
+      
+      // Update conversation's last message and unread count
       setConversations(prevConversations => {
-        return prevConversations.map(conv => {
+        const updatedConversations = prevConversations.map(conv => {
           if (conv.id === message.conversation_id) {
-            // Show notification for new message
-            showNotification(message, message.sender);
+            // Show notification for new message if:
+            // 1. It's not from current user
+            // 2. Either no conversation is selected OR selected conversation is different
+            if (message.sender_id !== currentUser.id && 
+                (!selectedConversation || selectedConversation.id !== message.conversation_id)) {
+              showChatNotification(
+                message.content,
+                message.sender,
+                message.conversation_id
+              );
+            }
             
             return {
               ...conv,
               last_message: message.content,
-              unread_count: message.sender_id !== currentUser.id ? (conv.unread_count + 1) : conv.unread_count
+              updated_at: new Date().toISOString(),
+              unread_count: message.sender_id !== currentUser.id && 
+                          (!selectedConversation || selectedConversation.id !== message.conversation_id)
+                          ? (conv.unread_count || 0) + 1 
+                          : conv.unread_count || 0
             };
           }
           return conv;
         });
+        
+        // Sort by most recent update
+        return updatedConversations.sort((a, b) => 
+          new Date(b.updated_at) - new Date(a.updated_at)
+        );
       });
     };
     
@@ -184,9 +179,25 @@ const ChatPage = () => {
     return () => {
       socket.off('new-message', handleNewMessage);
     };
-  }, [socket, currentUser, conversations, selectedConversation, notificationPermission, navigate]);
+  }, [socket, currentUser, selectedConversation]);
   
-  // Handle new message submission
+  // Handle conversation selection
+  const handleSelectConversation = (conversation) => {
+    setSelectedConversation(conversation);
+    navigate(`/chat/${conversation.id}`);
+    
+    // Reset unread count on selection
+    setConversations(prevConversations => {
+      return prevConversations.map(conv => {
+        if (conv.id === conversation.id && conv.unread_count > 0) {
+          return { ...conv, unread_count: 0 };
+        }
+        return conv;
+      });
+    });
+  };
+  
+  // Handle sending a message
   const handleSendMessage = (content) => {
     if (!socket || !selectedConversation || !content.trim()) return;
     
@@ -197,67 +208,54 @@ const ChatPage = () => {
     });
   };
 
-  // Handle user search
-  const handleSearch = async (query) => {
-    setSearchQuery(query);
-    
-    if (query.trim().length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    
-    try {
-      setSearchLoading(true);
-      
-      // CRITICAL FIX: Explicitly use the fixed API endpoint with /api prefix
-      const apiUrl = `${API_URL}/api/users/search?q=${encodeURIComponent(query || '')}&currentUserId=${currentUser.id}`;
-      console.log('[ChatPage] Searching users at URL:', apiUrl);
-      
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[ChatPage] Search failed: ${response.status} ${response.statusText}`, errorText);
-        throw new Error(`Search failed: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setSearchResults(data.users || []);
-    } catch (err) {
-      console.error('[ChatPage] Search error:', err);
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
   // Handle starting a new conversation
-  const handleStartConversation = async (userId) => {
+  const handleNewChat = async (userId) => {
     try {
       const conversation = await createConversation([currentUser.id, userId]);
       
-      // Add the new conversation to list
+      // Add the new conversation to list at the top
       setConversations(prev => [conversation, ...prev]);
       
       // Select the new conversation
       setSelectedConversation(conversation);
       
+      // Navigate to new conversation
+      navigate(`/chat/${conversation.id}`);
+      
       // Close modal
       setIsNewChatModalOpen(false);
     } catch (err) {
-      console.error('Failed to start conversation:', err);
+      console.error('[Chat] Failed to start conversation:', err);
       setError('Failed to start a new conversation. Please try again.');
     }
   };
 
-  // Request notification permission again if denied
-  const requestNotificationPermission = () => {
-    if (Notification.permission !== "granted") {
-      Notification.requestPermission().then(permission => {
-        setNotificationPermission(permission);
-      });
+  // Handle conversation deletion
+  const handleDeleteConversation = (conversationId) => {
+    setConversations(prevConversations => 
+      prevConversations.filter(conv => conv.id !== conversationId)
+    );
+    
+    if (selectedConversation?.id === conversationId) {
+      setSelectedConversation(null);
+      setMessages([]);
     }
   };
+
+  // Request notification permission again if denied
+  const handleRequestNotificationPermission = async () => {
+    const granted = await requestNotificationPermission();
+    setNotificationPermission(granted ? "granted" : "denied");
+  };
+
+  if (loading && conversations.length === 0) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
+        <Loader className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+        <p className="text-gray-400">Loading your conversations...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -268,11 +266,18 @@ const ChatPage = () => {
               Enable notifications to get alerts when new messages arrive.
             </p>
             <button 
-              onClick={requestNotificationPermission}
+              onClick={handleRequestNotificationPermission}
               className="px-3 py-1 bg-yellow-500/30 rounded-md hover:bg-yellow-500/40 transition-colors"
             >
               Enable
             </button>
+          </div>
+        )}
+        
+        {error && (
+          <div className="mb-4 bg-red-500/20 border border-red-500/50 rounded-lg p-3 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0 text-red-300" />
+            <p className="text-red-300">{error}</p>
           </div>
         )}
         
@@ -281,7 +286,7 @@ const ChatPage = () => {
             <ChatList
               conversations={conversations}
               selectedConversation={selectedConversation}
-              onSelectConversation={setSelectedConversation}
+              onSelectConversation={handleSelectConversation}
               onNewChat={() => setIsNewChatModalOpen(true)}
               currentUser={currentUser}
             />
@@ -294,6 +299,7 @@ const ChatPage = () => {
                 messages={messages}
                 onSendMessage={handleSendMessage}
                 currentUser={currentUser}
+                onDeleteConversation={handleDeleteConversation}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400">
@@ -303,29 +309,13 @@ const ChatPage = () => {
           </div>
         </div>
         
-        {/* New chat modal implementation here */}
-        {isNewChatModalOpen && (
-          <div className="new-chat-modal">
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
-            {searchLoading ? (
-              <p>Loading...</p>
-            ) : (
-              <ul>
-                {searchResults.map(user => (
-                  <li key={user.id} onClick={() => handleStartConversation(user.id)}>
-                    {user.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button onClick={() => setIsNewChatModalOpen(false)}>Close</button>
-          </div>
-        )}
+        {/* New chat modal */}
+        <NewChatModal 
+          isOpen={isNewChatModalOpen} 
+          onClose={() => setIsNewChatModalOpen(false)} 
+          onSelectUser={handleNewChat}
+          currentUser={currentUser}
+        />
       </div>
     </div>
   );

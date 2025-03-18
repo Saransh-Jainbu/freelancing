@@ -10,10 +10,13 @@ const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const { uploadToAzure, deleteFromAzure } = require('./services/azureStorage');
+const path = require('path');
 
-// Load environment variables
+// Load environment variables before importing services
 dotenv.config();
+
+// Import services
+const storageService = require('./services/azureStorage');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10); // Convert PORT to integer
@@ -41,9 +44,20 @@ app.use(cors({
 // Initialize passport
 app.use(passport.initialize());
 
+// Serve static files from uploads directory when using local storage
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Health check route (add near the top with other routes)
 const healthRoutes = require('./routes/health');
 app.use('/api/health', healthRoutes);
+
+// Push notification routes
+try {
+  const pushNotificationRoutes = require('./routes/pushNotifications');
+  app.use('/api/notifications', pushNotificationRoutes);
+} catch (error) {
+  console.warn('Push notification routes not loaded:', error.message);
+}
 
 // Database connection
 const pool = new Pool({
@@ -220,6 +234,9 @@ io.on('connection', (socket) => {
       
       // Emit to all users in the conversation
       io.to(`conversation-${conversationId}`).emit('new-message', newMessage);
+      
+      // If the receiver is not in the conversation, send a push notification
+      // You can implement this later using the pushService
     } catch (error) {
       console.error('Error sending message:', error);
       socket.emit('message-error', { error: 'Failed to send message' });
@@ -1218,7 +1235,7 @@ const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('Not an image! Please upload only images.'), false);
+    cb(new Error('Only image files are allowed'), false);
   }
 };
 
@@ -1230,63 +1247,34 @@ const upload = multer({
   }
 });
 
-// Image upload endpoint with Azure Blob Storage ONLY
+// Image upload endpoint
 app.post('/api/upload/image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
     }
-    
-    console.log('[Server] Uploading image to Azure:', req.file.originalname);
-    
-    // Upload to Azure Blob Storage
-    const uploadResult = await uploadToAzure(
+
+    // Upload to cloud storage (Azure) or local filesystem
+    const result = await storageService.uploadToAzure(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype
     );
-    
-    console.log('[Server] Azure upload successful:', uploadResult);
-    
-    res.status(200).json({
+
+    return res.json({
       success: true,
-      fileUrl: uploadResult.url, // URL with SAS token
-      blobUrl: uploadResult.blobUrl, // Original URL without SAS
-      blobName: uploadResult.blobName
+      message: 'Image uploaded successfully',
+      fileUrl: result.url,
+      storage: result.storage
     });
   } catch (error) {
-    console.error('[Server] Error uploading image:', error);
-    
-    // Specific error handling for common Azure issues
-    if (error.message && error.message.includes('container already exists')) {
-      console.log('[Server] Container already exists - this is not actually an error');
-      // Despite the error, we still want to upload the file
-      try {
-        const uploadResult = await uploadToAzure(
-          req.file.buffer,
-          req.file.originalname,
-          req.file.mimetype,
-          true // Skip container creation
-        );
-        
-        return res.status(200).json({
-          success: true,
-          fileUrl: uploadResult.url,
-          blobUrl: uploadResult.blobUrl,
-          blobName: uploadResult.blobName
-        });
-      } catch (retryError) {
-        console.error('[Server] Error in retry upload:', retryError);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Error uploading image after retry: ' + retryError.message
-        });
-      }
-    }
-    
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error uploading image: ' + error.message
+    console.error('Error uploading image:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Image upload failed: ${error.message}`
     });
   }
 });
@@ -1298,89 +1286,91 @@ app.put('/api/profile/:userId/avatar', async (req, res) => {
     const { avatarUrl, oldAvatarUrl } = req.body;
     
     if (!avatarUrl) {
-      return res.status(400).json({ success: false, message: 'Avatar URL is required' });
+      return res.status(400).json({
+        success: false,
+        message: 'No avatar URL provided'
+      });
     }
-    
-    console.log(`[Server] Updating avatar for user ${userId}`);
-    console.log(`[Server] New avatar URL: ${avatarUrl}`);
-    
-    // Delete old avatar from Azure if it exists
-    if (oldAvatarUrl && oldAvatarUrl.includes('blob.core.windows.net')) {
+
+    // Delete old avatar if it exists
+    if (oldAvatarUrl) {
       try {
-        console.log(`[Server] Attempting to delete old avatar: ${oldAvatarUrl}`);
-        await deleteFromAzure(oldAvatarUrl);
-        console.log(`[Server] Old avatar deleted successfully`);
-      } catch (deleteError) {
-        console.warn('[Server] Failed to delete old avatar, continuing anyway:', deleteError);
+        await storageService.deleteFromAzure(oldAvatarUrl);
+      } catch (deleteErr) {
+        console.error('Error deleting old avatar:', deleteErr);
+        // Continue even if deletion fails
       }
     }
-    
-    // Update profile avatar in database
+
+    // Update profile in database
     await query(
-      `UPDATE profiles SET avatar_url = $1 WHERE user_id = $2`,
+      'UPDATE profiles SET avatar_url = $1 WHERE user_id = $2',
       [avatarUrl, userId]
     );
-    
-    res.json({ success: true, avatarUrl });
+
+    return res.json({
+      success: true,
+      message: 'Profile avatar updated successfully',
+      avatarUrl
+    });
   } catch (error) {
-    console.error('Error updating avatar:', error);
-    res.status(500).json({ success: false, message: 'Server error updating avatar: ' + error.message });
+    console.error('Error updating profile avatar:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Failed to update avatar: ${error.message}`
+    });
   }
 });
 
-// Add to gigs endpoints - upload gig image with Azure only
+// Add to gigs endpoints - upload gig image
 app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
   try {
     const { gigId } = req.params;
     
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
     }
-    
-    console.log(`[Server] Uploading gig image for gig ${gigId}`);
-    
-    // Upload to Azure Blob Storage
-    const uploadResult = await uploadToAzure(
+
+    // Upload to cloud storage or local filesystem
+    const result = await storageService.uploadToAzure(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype
     );
-    
-    // Get old image URL to delete later
-    const oldImageResult = await query(
-      'SELECT image_url FROM gigs WHERE id = $1',
-      [gigId]
-    );
-    
-    const oldImageUrl = oldImageResult.rows[0]?.image_url;
-    
-    // Save new image URL to gig in database
+
+    // Update gig in database with image URL
     await query(
-      `UPDATE gigs SET image_url = $1 WHERE id = $2 RETURNING id`,
-      [uploadResult.url, gigId]
+      'UPDATE gigs SET image_url = $1 WHERE id = $2',
+      [result.url, gigId]
     );
-    
-    // Delete old image if it exists
-    if (oldImageUrl && oldImageUrl.includes('blob.core.windows.net')) {
-      try {
-        console.log(`[Server] Attempting to delete old gig image: ${oldImageUrl}`);
-        await deleteFromAzure(oldImageUrl);
-        console.log(`[Server] Old gig image deleted successfully`);
-      } catch (deleteError) {
-        console.warn('[Server] Failed to delete old gig image, continuing anyway:', deleteError);
-      }
-    }
-    
-    res.status(200).json({
+
+    return res.json({
       success: true,
-      gigId,
-      imageUrl: uploadResult.url
+      message: 'Gig image uploaded successfully',
+      imageUrl: result.url
     });
   } catch (error) {
     console.error('Error uploading gig image:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error uploading gig image: ' + error.message 
+    return res.status(500).json({
+      success: false,
+      message: `Gig image upload failed: ${error.message}`
     });
   }
+});
+
+// Update the existing startServer function to include storage status messages
+startServer(PORT).then(() => {
+  // Display storage status
+  if (storageService.isAzureConfigured) {
+    console.log('📦 Using Azure Blob Storage for file uploads');
+  } else {
+    console.log('📁 Using local filesystem for file uploads');
+    console.log('   Files will be available at /uploads/{filename}');
+  }
+  
+  console.log(`🌐 API available at ${process.env.SERVER_URL}/api`);
+  console.log(`🔗 Frontend URL: ${FRONTEND_URL}`);
 });

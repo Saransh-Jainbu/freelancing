@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextValue';
 import { Bell, MessageSquare, Menu, X, ChevronDown, LogOut, User, Grid, Settings } from 'lucide-react';
+import { API_URL } from '../constants';  // Add this import
 
 const Navigation = () => {
   const { currentUser, logout } = useAuth();

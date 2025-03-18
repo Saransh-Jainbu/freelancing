@@ -16,6 +16,7 @@ import LandingPage from './components/LandingPage';
 import MarketplacePage from './components/marketplace';
 import GigDetails from "./components/gigs/GigDetails";
 import ChatNotificationService from './components/chat/ChatNotificationService';
+import EnablePushNotifications from './components/chat/EnablePushNotifications';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -53,6 +54,9 @@ const AppRoutes = () => {
     <>
       {/* Global notification service - only active when user is logged in */}
       {currentUser && <ChatNotificationService />}
+      
+      {/* Notification permission banner */}
+      {currentUser && <EnablePushNotifications />}
       
       <Routes>
         {/* Landing page as home route */}

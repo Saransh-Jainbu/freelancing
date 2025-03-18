@@ -252,3 +252,86 @@ Deploy your frontend to Netlify or Vercel, pointing to your Render backend URL.
 - **Backend**: Express.js, Node.js
 - **Database**: PostgreSQL (hosted on Neon.tech)
 - **Authentication**: JWT (JSON Web Tokens)
+
+# UniTask
+
+A freelancing platform for university students.
+
+## Features
+
+- User authentication with email/password or social auth (Google, GitHub)
+- Profile management with skills and languages
+- Gig creation, editing, and management
+- Marketplace for browsing available gigs
+- Real-time chat with desktop notifications
+- Image uploads with Azure Blob Storage
+- Responsive design with Tailwind CSS
+
+## Development Setup
+
+### Prerequisites
+
+- Node.js (v16+)
+- PostgreSQL database
+- Azure Blob Storage account (for uploads)
+
+### Installation
+
+1. Clone the repository
+2. Install backend dependencies:
+   ```
+   cd backend
+   npm install
+   ```
+3. Install frontend dependencies:
+   ```
+   cd ..
+   npm install
+   ```
+4. Configure backend environment variables:
+   - Copy `backend/.env.example` to `backend/.env` and fill in your details
+   - Generate VAPID keys for push notifications:
+     ```
+     cd backend
+     npm run generate-vapid
+     ```
+5. Configure frontend environment variables:
+   - Copy `.env.example` to `.env` with your API URL
+
+### Running the Application
+
+#### Development mode
+
+1. Start the backend server:
+   ```
+   cd backend
+   npm run dev
+   ```
+2. In a new terminal, start the frontend:
+   ```
+   npm run dev
+   ```
+
+#### Production build
+
+1. Build the frontend:
+   ```
+   npm run build
+   ```
+2. Start the backend:
+   ```
+   cd backend
+   npm start
+   ```
+
+## Push Notifications Setup
+
+Desktop notifications are enabled by default in the application. For them to work:
+
+1. The backend must have VAPID keys configured (use the generate-vapid script)
+2. Users need to grant notification permission in their browser
+3. Service worker must be registered (handled automatically by the app)
+
+## Azure Storage Setup
+
+See the [Azure Storage Setup Guide](backend/AZURE_SETUP.md) for details on configuring image uploads.
