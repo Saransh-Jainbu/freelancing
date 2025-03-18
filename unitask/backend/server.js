@@ -10,8 +10,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const fs = require('fs');
+const { uploadToAzure, deleteFromAzure } = require('./services/azureStorage');
 
 // Load environment variables
 dotenv.config();
@@ -1173,122 +1172,6 @@ app.get('/api/gigs/:gigId/details', async (req, res) => {
   }
 });
 
-// Configure multer storage for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, 'uploads');
-    // Create uploads directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename with original extension
-    const uniqueFilename = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueFilename);
-  }
-});
-
-// File filter to only allow images
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Not an image! Please upload only images.'), false);
-  }
-};
-
-const upload = multer({ 
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5 MB limit
-  }
-});
-
-// Serve static files from the uploads directory
-app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Image upload endpoint
-app.post('/api/upload/image', upload.single('image'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
-    }
-    
-    // File uploaded successfully
-    const fileUrl = `${process.env.SERVER_URL || 'http://localhost:' + PORT}/api/uploads/${req.file.filename}`;
-    
-    res.status(200).json({
-      success: true,
-      filename: req.file.filename,
-      fileUrl: fileUrl
-    });
-  } catch (error) {
-    console.error('Error uploading image:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error uploading image'
-    });
-  }
-});
-
-// Update profile with avatar
-app.put('/api/profile/:userId/avatar', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { avatarUrl } = req.body;
-    
-    if (!avatarUrl) {
-      return res.status(400).json({ success: false, message: 'Avatar URL is required' });
-    }
-    
-    // Update profile avatar
-    await query(
-      `UPDATE profiles SET avatar_url = $1 WHERE user_id = $2`,
-      [avatarUrl, userId]
-    );
-    
-    res.json({ success: true, avatarUrl });
-  } catch (error) {
-    console.error('Error updating avatar:', error);
-    res.status(500).json({ success: false, message: 'Server error updating avatar' });
-  }
-});
-
-// Add to gigs endpoints - upload gig image
-app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
-  try {
-    const { gigId } = req.params;
-    
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
-    }
-    
-    // File uploaded successfully
-    const fileUrl = `${process.env.SERVER_URL || 'http://localhost:' + PORT}/api/uploads/${req.file.filename}`;
-    
-    // Save image URL to gig in database
-    await query(
-      `UPDATE gigs SET image_url = $1 WHERE id = $2 RETURNING id`,
-      [fileUrl, gigId]
-    );
-    
-    res.status(200).json({
-      success: true,
-      gigId,
-      imageUrl: fileUrl
-    });
-  } catch (error) {
-    console.error('Error uploading gig image:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error uploading gig image'
-    });
-  }
-});
-
 // Replace server.listen with better error handling
 const startServer = async (initialPort) => {
   const findAvailablePort = async (startPort) => {
@@ -1326,3 +1209,137 @@ const startServer = async (initialPort) => {
 };
 
 startServer(PORT);
+
+// Configure multer for memory storage (not disk)
+const storage = multer.memoryStorage();
+
+// File filter to only allow images
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Not an image! Please upload only images.'), false);
+  }
+};
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5 MB limit
+  }
+});
+
+// Image upload endpoint with Azure Blob Storage
+app.post('/api/upload/image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    
+    // Upload to Azure Blob Storage
+    const uploadResult = await uploadToAzure(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+    
+    res.status(200).json({
+      success: true,
+      fileUrl: uploadResult.url, // URL with SAS token
+      blobUrl: uploadResult.blobUrl, // Original URL without SAS
+      blobName: uploadResult.blobName
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error uploading image'
+    });
+  }
+});
+
+// Update profile with avatar
+app.put('/api/profile/:userId/avatar', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { avatarUrl, oldAvatarUrl } = req.body;
+    
+    if (!avatarUrl) {
+      return res.status(400).json({ success: false, message: 'Avatar URL is required' });
+    }
+    
+    // Delete old avatar from Azure if it exists
+    if (oldAvatarUrl && oldAvatarUrl.includes('blob.core.windows.net')) {
+      try {
+        await deleteFromAzure(oldAvatarUrl);
+      } catch (deleteError) {
+        console.warn('Failed to delete old avatar, continuing anyway:', deleteError);
+      }
+    }
+    
+    // Update profile avatar in database - store the URL with SAS token
+    await query(
+      `UPDATE profiles SET avatar_url = $1 WHERE user_id = $2`,
+      [avatarUrl, userId]
+    );
+    
+    res.json({ success: true, avatarUrl });
+  } catch (error) {
+    console.error('Error updating avatar:', error);
+    res.status(500).json({ success: false, message: 'Server error updating avatar' });
+  }
+});
+
+// Add to gigs endpoints - upload gig image with Azure
+app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
+  try {
+    const { gigId } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    
+    // Upload to Azure Blob Storage
+    const imageUrl = await uploadToAzure(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+    
+    // Get old image URL to delete later
+    const oldImageResult = await query(
+      'SELECT image_url FROM gigs WHERE id = $1',
+      [gigId]
+    );
+    
+    const oldImageUrl = oldImageResult.rows[0]?.image_url;
+    
+    // Save new image URL to gig in database
+    await query(
+      `UPDATE gigs SET image_url = $1 WHERE id = $2 RETURNING id`,
+      [imageUrl, gigId]
+    );
+    
+    // Delete old image if it exists
+    if (oldImageUrl && oldImageUrl.includes('blob.core.windows.net')) {
+      try {
+        await deleteFromAzure(oldImageUrl);
+      } catch (deleteError) {
+        console.warn('Failed to delete old gig image, continuing anyway:', deleteError);
+      }
+    }
+    
+    res.status(200).json({
+      success: true,
+      gigId,
+      imageUrl
+    });
+  } catch (error) {
+    console.error('Error uploading gig image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error uploading gig image'
+    });
+  }
+});

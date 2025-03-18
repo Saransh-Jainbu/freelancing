@@ -27,7 +27,7 @@ export const uploadImage = async (file) => {
 };
 
 // Update user profile avatar
-export const updateProfileAvatar = async (userId, avatarUrl) => {
+export const updateProfileAvatar = async (userId, avatarUrl, oldAvatarUrl) => {
   try {
     console.log(`[Upload API] Updating avatar for user:`, userId);
     
@@ -36,7 +36,10 @@ export const updateProfileAvatar = async (userId, avatarUrl) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ avatarUrl })
+      body: JSON.stringify({ 
+        avatarUrl,
+        oldAvatarUrl // Include old URL so server can delete it
+      })
     });
     
     if (!response.ok) {

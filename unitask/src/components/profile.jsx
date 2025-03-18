@@ -157,8 +157,9 @@ const ProfilePage = () => {
       const uploadResult = await uploadImage(file);
       
       if (uploadResult.success) {
-        // Update profile with new avatar URL
-        const result = await updateProfileAvatar(userId, uploadResult.fileUrl);
+        // Update profile with new avatar URL and pass the old one for deletion
+        const oldAvatarUrl = profile.avatar_url;
+        const result = await updateProfileAvatar(userId, uploadResult.fileUrl, oldAvatarUrl);
         
         if (result.success) {
           // Update local state
