@@ -1189,44 +1189,6 @@ app.get('/api/gigs/:gigId/details', async (req, res) => {
   }
 });
 
-// Replace server.listen with better error handling
-const startServer = async (initialPort) => {
-  const findAvailablePort = async (startPort) => {
-    return new Promise((resolve, reject) => {
-      server.once('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-          server.close();
-          resolve(findAvailablePort(startPort + 1));
-        } else {
-          reject(err);
-        }
-      });
-      
-      server.listen(startPort, () => {
-        resolve(startPort);
-      });
-    });
-  };
-
-  try {
-    // Ensure port is a valid number
-    let port = typeof initialPort === 'string' ? parseInt(initialPort, 10) : initialPort;
-    port = isNaN(port) || port < 0 || port >= 65536 ? 5000 : port;
-    
-    port = await findAvailablePort(port);
-    console.log(`Server running on port ${port}`);
-    
-    // Update environment variable for other parts of the application
-    process.env.PORT = String(port);
-    process.env.SERVER_URL = `http://localhost:${port}`;
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-};
-
-startServer(PORT);
-
 // Configure multer for memory storage only - no disk storage
 const storage = multer.memoryStorage();
 
@@ -1361,16 +1323,31 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
   }
 });
 
-// Update the existing startServer function to include storage status messages
-startServer(PORT).then(() => {
+// Plain, simple server startup - no complexity
+// PORT is already defined at the top of the file
+
+// Error handler for server
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`⚠️ Port ${PORT} is already in use. Please use a different port.`);
+  } else {
+    console.error('Server error:', error);
+  }
+  process.exit(1);
+});
+
+// Just one simple listen call
+server.listen(PORT, () => {
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  
   // Display storage status
-  if (storageService.isAzureConfigured) {
+  if (storageService && storageService.isAzureConfigured) {
     console.log('📦 Using Azure Blob Storage for file uploads');
   } else {
     console.log('📁 Using local filesystem for file uploads');
     console.log('   Files will be available at /uploads/{filename}');
   }
   
-  console.log(`🌐 API available at ${process.env.SERVER_URL}/api`);
+  console.log(`🌐 API available at http://localhost:${PORT}/api`);
   console.log(`🔗 Frontend URL: ${FRONTEND_URL}`);
 });
