@@ -1246,6 +1246,8 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
       req.file.mimetype
     );
     
+    console.log('[Server] Azure upload successful:', uploadResult);
+    
     res.status(200).json({
       success: true,
       fileUrl: uploadResult.url, // URL with SAS token
@@ -1253,7 +1255,7 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
       blobName: uploadResult.blobName
     });
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error('[Server] Error uploading image:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Error uploading image: ' + error.message

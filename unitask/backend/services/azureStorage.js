@@ -123,22 +123,23 @@ async function deleteFromAzure(blobUrl) {
  */
 async function ensureContainerExists() {
   try {
-    // Check if container exists - note that the exists() method may not be available
-    // in all versions of the SDK, so we use a try-catch approach
+    // Check if container exists using try-catch approach
     try {
       const containers = await blobServiceClient.listContainers();
       const containerExists = containers.some(container => container.name === containerName);
       
       if (!containerExists) {
         console.log(`Creating container "${containerName}"...`);
-        await containerClient.create({ access: 'private' }); // Use private access for security
-        console.log(`Container "${containerName}" created successfully`);
+        // FIXED: Use 'None' instead of 'private' for access level
+        const createContainerResponse = await containerClient.create();
+        console.log(`Container "${containerName}" created successfully`, createContainerResponse);
       }
     } catch (err) {
       // If container doesn't exist, create it
       console.log(`Attempting to create container "${containerName}"...`);
-      await containerClient.create({ access: 'private' }); // Use private access for security
-      console.log(`Container "${containerName}" created successfully`);
+      // FIXED: Remove access parameter entirely as it defaults to private
+      const createContainerResponse = await containerClient.create();
+      console.log(`Container "${containerName}" created successfully`, createContainerResponse);
     }
   } catch (error) {
     console.error('Error ensuring container exists:', error);
