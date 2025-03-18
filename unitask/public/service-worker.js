@@ -55,17 +55,22 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Push notification event
+// Push notification event - this handles incoming notifications when site is closed
 self.addEventListener('push', (event) => {
-  console.log('[ServiceWorker] Push Received');
+  console.log('[ServiceWorker] Push Received:', event.data?.text());
   
   let data = {};
   try {
     data = event.data.json();
+    console.log('[ServiceWorker] Push data:', data);
   } catch (e) {
+    // If we couldn't parse JSON, use the raw text as the message body
+    const rawText = event.data ? event.data.text() : "You have a new notification";
+    console.log('[ServiceWorker] Raw push data:', rawText);
+    
     data = {
       title: "New Message",
-      body: event.data ? event.data.text() : "You have a new notification",
+      body: rawText,
       icon: "/favicon.ico",
       badge: "/notification-badge.png",
       tag: "unitask-notification",
@@ -83,13 +88,15 @@ self.addEventListener('push', (event) => {
     data: data.data || { url: "/chat" },
     vibrate: [100, 50, 100],
     silent: false,
-    requireInteraction: data.requireInteraction || false
+    requireInteraction: data.requireInteraction !== false, // Default to requiring interaction
+    renotify: true // Always notify the user for new messages
   };
   
+  console.log('[ServiceWorker] Showing notification with options:', options);
   event.waitUntil(self.registration.showNotification(data.title || "UniTask", options));
 });
 
-// Notification click event
+// Notification click event - opens the app when notification is clicked
 self.addEventListener('notificationclick', (event) => {
   console.log('[ServiceWorker] Notification click received');
   

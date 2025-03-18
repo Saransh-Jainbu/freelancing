@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Send, Loader, MoreVertical, Trash2, AlertCircle } from 'lucide-react';
+import { Send, Loader, MoreVertical, Trash2, AlertCircle, Check, CheckCheck } from 'lucide-react';
 import { format } from 'date-fns';
-import { deleteConversation } from '../../api/chat';
+import { deleteConversation, markMessagesAsRead } from '../../api/chat';
 import { useNavigate } from 'react-router-dom';
 
-const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDeleteConversation }) => {
+const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDeleteConversation, onlineUsers }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,6 +19,23 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Add useEffect to mark messages as read when conversation is opened
+  useEffect(() => {
+    // Get unread messages from other users
+    const unreadMessages = messages.filter(
+      msg => msg.sender_id !== currentUser.id && !msg.is_read
+    );
+    
+    if (unreadMessages.length > 0) {
+      // Mark messages as read
+      markMessagesAsRead(
+        conversation.id,
+        unreadMessages.map(msg => msg.id),
+        currentUser.id
+      ).catch(err => console.error('Error marking messages as read:', err));
+    }
+  }, [messages, conversation.id, currentUser.id]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,6 +87,11 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
     setActionMenuOpen(!actionMenuOpen);
   };
 
+  // Helper function to check if user is online
+  const isUserOnline = (userId) => {
+    return onlineUsers?.includes(userId) || false;
+  };
+  
   // Get the conversation partner (assuming 2 people in conversation)
   const getPartner = () => {
     if (!conversation?.participants) return null;
@@ -77,38 +99,46 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
   };
   
   const partner = getPartner();
+  const isOnline = isUserOnline(partner?.id);
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center">
-          <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden mr-3">
-            {partner?.avatar_url ? (
-              <img 
-                src={partner.avatar_url} 
-                alt={partner.display_name} 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  console.log("Avatar image error, falling back to initial");
-                  e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = `
-                    <div class="w-full h-full flex items-center justify-center text-white font-medium">
-                      ${partner.display_name?.charAt(0).toUpperCase() || '?'}
-                    </div>
-                  `;
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white font-medium">
-                {partner?.display_name?.charAt(0).toUpperCase() || '?'}
-              </div>
-            )}
+          <div className="relative">
+            <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden mr-3">
+              {partner?.avatar_url ? (
+                <img 
+                  src={partner.avatar_url} 
+                  alt={partner.display_name} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.log("Avatar image error, falling back to initial");
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = `
+                      <div class="w-full h-full flex items-center justify-center text-white font-medium">
+                        ${partner.display_name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                    `;
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white font-medium">
+                  {partner?.display_name?.charAt(0).toUpperCase() || '?'}
+                </div>
+              )}
+            </div>
+            {/* Add online status indicator */}
+            <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-gray-900 ${
+              isOnline ? 'bg-green-500' : 'bg-gray-500'
+            }`}></div>
           </div>
           <div>
             <h2 className="text-lg font-semibold">{partner?.display_name || 'Chat'}</h2>
-            {conversation.gig_title && (
-              <p className="text-xs text-gray-400">RE: {conversation.gig_title}</p>
-            )}
+            <p className="text-xs text-gray-400">
+              {isOnline ? 'Online now' : partner?.last_active ? `Last seen ${format(new Date(partner.last_active), 'MMM d, h:mm a')}` : 'Offline'}
+              {conversation.gig_title && ` • ${conversation.gig_title}`}
+            </p>
           </div>
         </div>
         <div className="relative">
@@ -163,23 +193,45 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
                   )}
                 </div>
               )}
-              <div 
-                className={`max-w-xs md:max-w-md p-3 rounded-lg ${
-                  msg.sender_id === currentUser.id 
-                    ? 'bg-purple-600 text-white rounded-br-none' 
-                    : 'bg-gray-800 text-gray-300 rounded-bl-none'
-                }`}
-              >
-                <p className="break-words">{msg.content}</p>
-                <p className="text-xs opacity-70 mt-1 text-right">
-                  {format(new Date(msg.created_at), 'p')}
-                </p>
-              </div>
+              
+              {/* System message for gig context */}
+              {msg.is_system && (
+                <div className="max-w-md py-2 px-3 bg-gray-700/40 text-xs text-gray-300 rounded-lg border border-white/10 mx-auto my-2">
+                  {msg.content}
+                </div>
+              )}
+              
+              {/* Regular message */}
+              {!msg.is_system && (
+                <div 
+                  className={`max-w-xs md:max-w-md p-3 rounded-lg ${
+                    msg.sender_id === currentUser.id 
+                      ? 'bg-purple-600 text-white rounded-br-none' 
+                      : 'bg-gray-800 text-gray-300 rounded-bl-none'
+                  }`}
+                >
+                  <p className="break-words">{msg.content}</p>
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <p className="text-xs opacity-70">
+                      {format(new Date(msg.created_at), 'p')}
+                    </p>
+                    
+                    {/* Show read status for own messages */}
+                    {msg.sender_id === currentUser.id && (
+                      msg.is_read ? (
+                        <CheckCheck className="w-3 h-3 text-blue-300" />
+                      ) : (
+                        <Check className="w-3 h-3 text-gray-400" />
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))
         )}
         {typing && (
-          <div className="flex justify-start">
+          <div className="flex justify-start"></div>
             <div className="bg-gray-800 text-gray-300 p-3 rounded-lg max-w-xs rounded-bl-none">
               <div className="flex gap-1">
                 <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -193,7 +245,7 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
       </div>
       <div className="p-4 border-t border-white/10">
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm flex items-center gap-2">
+          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm flex items-center gap-2"></div>
             <AlertCircle className="w-5 h-5" />
             {error}
           </div>
@@ -212,7 +264,7 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
             onClick={handleSendMessage}
             disabled={loading || !message.trim()}
             className={`p-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity flex-shrink-0 ${loading || !message.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
+          ></button>
             {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>
         </div>
@@ -227,6 +279,7 @@ ChatWindow.propTypes = {
   onSendMessage: PropTypes.func.isRequired,
   currentUser: PropTypes.object.isRequired,
   onDeleteConversation: PropTypes.func,
+  onlineUsers: PropTypes.array,
 };
 
 export default ChatWindow;

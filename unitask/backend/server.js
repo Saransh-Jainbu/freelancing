@@ -201,58 +201,159 @@ const initDb = async () => {
 // Initialize database on server start
 initDb();
 
+// Mapping of online users and their socket IDs
+const onlineUsers = new Map(); // userId -> socketId
+const userSockets = new Map(); // socketId -> userId
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
+  console.log('New socket connection:', socket.id);
   
-  // Join conversation room
-  socket.on('join-conversation', (conversationId) => {
-    socket.join(`conversation-${conversationId}`);
-    console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+  // Handle user coming online
+  socket.on('user-online', (userId) => {
+    if (!userId) return;
+    console.log(`User ${userId} connected with socket ${socket.id}`);
+    
+    // Store the user's online status
+    onlineUsers.set(userId.toString(), socket.id);
+    userSockets.set(socket.id, userId.toString());
+    
+    // Update user's last_active timestamp in database
+    updateUserLastActive(userId).catch(err => 
+      console.error(`Error updating last_active for user ${userId}:`, err)
+    );
+    
+    // Broadcast updated online users list to all connected clients
+    io.emit('online-users', Array.from(onlineUsers.keys()));
   });
   
-  // Handle new message
+  // Handle ping to keep user online
+  socket.on('ping', (userId) => {
+    if (!userId) return;
+    
+    // Update last_active timestamp
+    updateUserLastActive(userId).catch(err => 
+      console.error(`Error updating last_active on ping for user ${userId}:`, err)
+    );
+  });
+  
+  // Handle user going offline
+  socket.on('disconnect', () => {
+    const userId = userSockets.get(socket.id);
+    
+    if (userId) {
+      console.log(`User ${userId} disconnected`);
+      onlineUsers.delete(userId);
+      userSockets.delete(socket.id);
+      
+      // Broadcast updated online users list
+      io.emit('online-users', Array.from(onlineUsers.keys()));
+    }
+  });
+  
+  // Handle user explicitly going offline
+  socket.on('user-offline', (userId) => {
+    if (!userId) return;
+    
+    console.log(`User ${userId} went offline`);
+    onlineUsers.delete(userId.toString());
+    
+    // Remove socket mapping
+    const socketId = onlineUsers.get(userId.toString());
+    if (socketId) {
+      userSockets.delete(socketId);
+    }
+    
+    // Broadcast updated online users list
+    io.emit('online-users', Array.from(onlineUsers.keys()));
+  });
+  
+  // Handle joining a conversation room
+  socket.on('join-conversation', (conversationId) => {
+    if (!conversationId) return;
+    
+    const roomName = `conversation-${conversationId}`;
+    socket.join(roomName);
+    console.log(`Socket ${socket.id} joined room ${roomName}`);
+  });
+  
+  // Handle sending a message
   socket.on('send-message', async (messageData) => {
     try {
       const { conversationId, senderId, content } = messageData;
+      if (!conversationId || !senderId || !content) {
+        return;
+      }
       
-      // Insert message to database
-      const result = await query(
-        `INSERT INTO messages (conversation_id, sender_id, content)
-         VALUES ($1, $2, $3)
-         RETURNING id, conversation_id, sender_id, content, read, created_at`,
-        [conversationId, senderId, content]
-      );
+      // Save message to database
+      const savedMessage = await saveMessage(conversationId, senderId, content);
       
-      // Update conversation's updated_at
-      await query(
-        `UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-        [conversationId]
-      );
+      // Emit message to conversation room
+      io.to(`conversation-${conversationId}`).emit('new-message', savedMessage);
       
-      const newMessage = result.rows[0];
+      // Update conversation with last message
+      await updateConversationLastMessage(conversationId, content, senderId);
       
-      // Emit to all users in the conversation
-      io.to(`conversation-${conversationId}`).emit('new-message', newMessage);
-      
-      // If the receiver is not in the conversation, send a push notification
-      // You can implement this later using the pushService
     } catch (error) {
       console.error('Error sending message:', error);
-      socket.emit('message-error', { error: 'Failed to send message' });
     }
   });
-
-  // Handle typing indicator
-  socket.on('typing', ({ conversationId, userId, isTyping }) => {
-    socket.to(`conversation-${conversationId}`).emit('user-typing', { userId, isTyping });
-  });
   
-  // Handle disconnect
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+  // Handle marking messages as read
+  socket.on('mark-messages-read', async (data) => {
+    try {
+      const { conversationId, messageIds, userId } = data;
+      if (!conversationId || !messageIds || !messageIds.length || !userId) {
+        return;
+      }
+      
+      // Update messages in database
+      await markMessagesAsRead(conversationId, messageIds, userId);
+      
+      // Emit read receipt to conversation room
+      io.to(`conversation-${conversationId}`).emit('message-read', {
+        messageIds,
+        userId,
+        conversationId
+      });
+      
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
   });
 });
+
+// Helper function to update user's last_active timestamp
+async function updateUserLastActive(userId) {
+  try {
+    const timestamp = new Date().toISOString();
+    await query(
+      'UPDATE users SET last_active = $1 WHERE id = $2',
+      [timestamp, userId]
+    );
+    return true;
+  } catch (error) {
+    console.error('Error updating last_active:', error);
+    return false;
+  }
+}
+
+// Helper function to mark messages as read in database
+async function markMessagesAsRead(conversationId, messageIds, userId) {
+  try {
+    // Update messages to mark them as read
+    await query(
+      `UPDATE messages 
+       SET is_read = true, read_at = NOW() 
+       WHERE id = ANY($1::int[]) AND conversation_id = $2 AND sender_id != $3`,
+      [messageIds, conversationId, userId]
+    );
+    return true;
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+    return false;
+  }
+}
 
 // Configure Passport strategies
 passport.use(new GoogleStrategy({
@@ -1351,3 +1452,71 @@ server.listen(PORT, () => {
   console.log(`🌐 API available at http://localhost:${PORT}/api`);
   console.log(`🔗 Frontend URL: ${FRONTEND_URL}`);
 });
+
+// Create new conversation with initial system message for gig context
+async function createGigContextConversation(participantIds, gigInfo) {
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Create conversation
+    const conversationResult = await client.query(
+      `INSERT INTO conversations (created_at, updated_at) 
+       VALUES (NOW(), NOW()) 
+       RETURNING *`,
+      []
+    );
+    
+    const conversation = conversationResult.rows[0];
+    
+    // Add participants
+    for (const userId of participantIds) {
+      await client.query(
+        `INSERT INTO conversation_participants (conversation_id, user_id) 
+         VALUES ($1, $2)`,
+        [conversation.id, userId]
+      );
+    }
+    
+    // If gig info is provided, add a system message with context
+    if (gigInfo && gigInfo.gig_id && gigInfo.title) {
+      // Add system message about the gig
+      const systemMessage = `This conversation is about the gig: "${gigInfo.title}"`;
+      
+      await client.query(
+        `INSERT INTO messages (conversation_id, sender_id, content, created_at, is_system) 
+         VALUES ($1, $2, $3, NOW(), true)`,
+        [conversation.id, participantIds[0], systemMessage]
+      );
+      
+      // Add gig reference to conversation
+      await client.query(
+        `UPDATE conversations 
+         SET gig_id = $1, gig_title = $2 
+         WHERE id = $3`,
+        [gigInfo.gig_id, gigInfo.title, conversation.id]
+      );
+    }
+    
+    await client.query('COMMIT');
+    
+    // Return the created conversation with participants
+    const result = await client.query(
+      `SELECT c.*, array_agg(json_build_object('id', u.id, 'email', u.email, 'display_name', u.display_name, 'avatar_url', u.avatar_url)) as participants
+       FROM conversations c
+       JOIN conversation_participants cp ON c.id = cp.conversation_id
+       JOIN users u ON cp.user_id = u.id
+       WHERE c.id = $1
+       GROUP BY c.id`,
+      [conversation.id]
+    );
+    
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}

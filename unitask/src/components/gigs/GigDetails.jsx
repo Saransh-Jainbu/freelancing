@@ -56,7 +56,8 @@ const GigDetails = () => {
           gigInfo: {
             gig_id: gig.id,
             title: gig.title
-          }
+          },
+          includeContextMessage: true // Add flag to include context message
         })
       });
       

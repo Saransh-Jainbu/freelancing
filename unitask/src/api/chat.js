@@ -29,7 +29,8 @@ export const createConversation = async (participantIds, gigInfo = null) => {
       },
       body: JSON.stringify({ 
         participantIds,
-        gigInfo
+        gigInfo,
+        includeContextMessage: !!gigInfo // Add a flag to include a context message
       })
     });
     
@@ -59,6 +60,33 @@ export const getConversationMessages = async (conversationId, userId) => {
     return data.messages;
   } catch (error) {
     console.error('Error fetching messages:', error);
+    throw error;
+  }
+};
+
+// Mark messages as read
+export const markMessagesAsRead = async (conversationId, messageIds, userId) => {
+  try {
+    console.log(`[Chat API] Marking messages as read:`, messageIds);
+    const response = await fetch(`${API_URL}/api/conversations/${conversationId}/read`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        messageIds, 
+        userId 
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to mark messages as read: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
     throw error;
   }
 };

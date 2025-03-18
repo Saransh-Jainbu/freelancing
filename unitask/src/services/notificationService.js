@@ -71,15 +71,18 @@ const getNotificationPermission = () => {
 // Show notification
 const showNotification = async (title, options = {}) => {
   if (!canUseNotifications() || Notification.permission !== 'granted') {
+    console.log('Cannot show notification: permissions not granted or notifications not supported');
     return false;
   }
   
   try {
     const registration = await navigator.serviceWorker.ready;
+    console.log('Showing notification:', title, options);
     await registration.showNotification(title, {
       icon: '/favicon.ico',
       badge: '/notification-badge.png',
       vibrate: [100, 50, 100],
+      requireInteraction: true, // Make notification stay until user interacts
       ...options
     });
     return true;
@@ -94,31 +97,64 @@ const playNotificationSound = () => {
   const audio = new Audio('/notification-sound.mp3');
   audio.volume = 0.5; // 50% volume
   
-  // Only play sound if tab is not focused
-  if (!document.hasFocus()) {
-    audio.play().catch(err => {
-      console.warn('Could not play notification sound:', err);
-    });
-  }
+  // Always play sound for message notifications
+  audio.play().catch(err => {
+    console.warn('Could not play notification sound:', err);
+  });
 };
 
 // Show chat message notification
 const showChatNotification = async (message, sender, conversationId) => {
-  const title = 'New Message from UniTask';
+  console.log('Attempting to show chat notification:', {message, sender, conversationId});
+  
+  // If message is too long, truncate it for the notification
+  const truncatedMessage = message.length > 100 ? message.substring(0, 97) + '...' : message;
+  
+  const title = `New message from ${sender.display_name}`;
   const options = {
-    body: `${sender.display_name}: ${message}`,
+    body: truncatedMessage, // Use the actual message as the notification body
     icon: sender.avatar_url || '/favicon.ico',
     badge: '/notification-badge.png',
     tag: `chat-${conversationId}`, // Replace older notifications from same conversation
     data: {
       url: `/chat/${conversationId}`,
+      senderId: sender.id,
+      message: message
     },
-    requireInteraction: false, // Auto close
+    requireInteraction: true, // Make notification stay until user interacts
+    renotify: true, // Notify each time even if from same conversation
     silent: false // Allow sound
   };
   
+  // Play sound for new message notifications
   playNotificationSound();
-  return await showNotification(title, options);
+  
+  // For testing - try both methods
+  // 1. Use the service worker
+  const swResult = await showNotification(title, options);
+  
+  // 2. If service worker fails, try direct Notification API as fallback
+  if (!swResult && Notification.permission === 'granted') {
+    try {
+      const notification = new Notification(title, {
+        ...options,
+        icon: options.icon || '/favicon.ico'
+      });
+      
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+        window.location.href = options.data.url;
+      };
+      
+      return true;
+    } catch (error) {
+      console.error('Fallback notification failed:', error);
+      return false;
+    }
+  }
+  
+  return swResult;
 };
 
 export {

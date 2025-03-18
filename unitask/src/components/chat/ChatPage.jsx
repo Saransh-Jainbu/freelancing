@@ -22,6 +22,7 @@ const ChatPage = () => {
   const [socket, setSocket] = useState(null);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
+  const [onlineUsers, setOnlineUsers] = useState([]);
   
   // Request notification permission
   useEffect(() => {
@@ -145,8 +146,18 @@ const ChatPage = () => {
             // Show notification for new message if:
             // 1. It's not from current user
             // 2. Either no conversation is selected OR selected conversation is different
+            // 3. Tab is not currently focused
             if (message.sender_id !== currentUser.id && 
-                (!selectedConversation || selectedConversation.id !== message.conversation_id)) {
+                (!selectedConversation || selectedConversation.id !== message.conversation_id || !document.hasFocus())) {
+              
+              // Ensure sender object has display_name
+              if (!message.sender) {
+                message.sender = {
+                  display_name: 'Someone',
+                  id: message.sender_id
+                };
+              }
+              
               showChatNotification(
                 message.content,
                 message.sender,
@@ -180,6 +191,45 @@ const ChatPage = () => {
       socket.off('new-message', handleNewMessage);
     };
   }, [socket, currentUser, selectedConversation]);
+  
+  // Update user's online status and track other online users
+  useEffect(() => {
+    if (!socket || !currentUser) return;
+    
+    // Emit user online status when connected
+    socket.emit('user-online', currentUser.id);
+    
+    // Setup ping interval to maintain online status
+    const pingInterval = setInterval(() => {
+      socket.emit('ping', currentUser.id);
+    }, 30000); // Every 30 seconds
+    
+    // Listen for online users updates
+    socket.on('online-users', (users) => {
+      console.log('[Chat] Online users update:', users);
+      setOnlineUsers(users);
+    });
+    
+    // Handle message read receipts
+    socket.on('message-read', ({ messageId, conversationId }) => {
+      setMessages(prevMessages => {
+        return prevMessages.map(msg => {
+          if (msg.id === messageId || (Array.isArray(messageId) && messageId.includes(msg.id))) {
+            return { ...msg, is_read: true };
+          }
+          return msg;
+        });
+      });
+    });
+    
+    return () => {
+      // Emit user offline event when component unmounts
+      socket.emit('user-offline', currentUser.id);
+      clearInterval(pingInterval);
+      socket.off('online-users');
+      socket.off('message-read');
+    };
+  }, [socket, currentUser]);
   
   // Handle conversation selection
   const handleSelectConversation = (conversation) => {
@@ -300,6 +350,7 @@ const ChatPage = () => {
                 onSendMessage={handleSendMessage}
                 currentUser={currentUser}
                 onDeleteConversation={handleDeleteConversation}
+                onlineUsers={onlineUsers}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400">

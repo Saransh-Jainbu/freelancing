@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { Search, Plus, Menu } from 'lucide-react';
 import NewChatModal from './NewChatModal';
 
-const ChatList = ({ conversations, selectedConversation, onSelectConversation, onNewChat, currentUser }) => {
+const ChatList = ({ conversations, selectedConversation, onSelectConversation, onNewChat, currentUser, onlineUsers = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
 
@@ -52,6 +52,17 @@ const ChatList = ({ conversations, selectedConversation, onSelectConversation, o
     // Return the avatar of the first other participant
     return otherParticipants[0].avatar_url;
   };
+  
+  // Helper function to check if the other participant is online
+  const isParticipantOnline = (conversation) => {
+    if (!conversation?.participants) return false;
+    
+    const otherParticipant = conversation.participants.find(
+      p => p.id !== currentUser.id
+    );
+    
+    return otherParticipant && onlineUsers.includes(otherParticipant.id);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -95,6 +106,7 @@ const ChatList = ({ conversations, selectedConversation, onSelectConversation, o
               const isSelected = selectedConversation && selectedConversation.id === conversation.id;
               const hasUnread = conversation.unread_count > 0;
               const avatarUrl = getParticipantAvatar(conversation);
+              const isOnline = isParticipantOnline(conversation);
               
               return (
                 <li key={conversation.id}>
@@ -104,27 +116,33 @@ const ChatList = ({ conversations, selectedConversation, onSelectConversation, o
                     }`}
                     onClick={() => onSelectConversation(conversation)}
                   >
-                    <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden flex-shrink-0">
-                      {avatarUrl ? (
-                        <img 
-                          src={avatarUrl} 
-                          alt="Avatar"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            console.log("List avatar image error, falling back to initial");
-                            e.target.style.display = 'none';
-                            e.target.parentElement.innerHTML = `
-                              <div class="w-full h-full flex items-center justify-center text-white font-medium">
-                                ${getConversationTitle(conversation).charAt(0).toUpperCase()}
-                              </div>
-                            `;
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white font-medium">
-                          {getConversationTitle(conversation).charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden flex-shrink-0">
+                        {avatarUrl ? (
+                          <img 
+                            src={avatarUrl} 
+                            alt="Avatar"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.log("List avatar image error, falling back to initial");
+                              e.target.style.display = 'none';
+                              e.target.parentElement.innerHTML = `
+                                <div class="w-full h-full flex items-center justify-center text-white font-medium">
+                                  ${getConversationTitle(conversation).charAt(0).toUpperCase()}
+                                </div>
+                              `;
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white font-medium">
+                            {getConversationTitle(conversation).charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      {/* Add online status indicator */}
+                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${
+                        isOnline ? 'bg-green-500' : 'bg-gray-500'
+                      }`}></div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
@@ -158,6 +176,7 @@ ChatList.propTypes = {
   onSelectConversation: PropTypes.func.isRequired,
   onNewChat: PropTypes.func.isRequired,
   currentUser: PropTypes.object.isRequired,
+  onlineUsers: PropTypes.array,
 };
 
 export default ChatList;

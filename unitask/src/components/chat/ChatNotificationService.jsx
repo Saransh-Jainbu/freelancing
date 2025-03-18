@@ -68,8 +68,21 @@ const ChatNotificationService = () => {
     if (!socket || !currentUser || notificationPermission !== 'granted') return;
     
     const handleNewMessage = (message) => {
+      console.log('[NotificationService] Received message:', message);
+      
       // Only show notifications if the message is not from the current user
       if (message.sender_id !== currentUser.id) {
+        // Make sure we have a valid sender object with display_name
+        if (!message.sender || !message.sender.display_name) {
+          console.warn('[NotificationService] Missing sender info in message:', message);
+          // Create a fallback sender object
+          message.sender = message.sender || {
+            display_name: 'Someone',
+            id: message.sender_id
+          };
+        }
+        
+        // Show notification with the actual message content
         showChatNotification(
           message.content, 
           message.sender, 
