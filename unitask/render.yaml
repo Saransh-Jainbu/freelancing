@@ -24,3 +24,12 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
+      # Azure Storage keys - critical for image storage
+      - key: AZURE_STORAGE_CONNECTION_STRING
+        sync: false
+      - key: AZURE_STORAGE_CONTAINER_NAME
+        sync: false
+      - key: AZURE_STORAGE_ACCOUNT_NAME
+        sync: false 
+      - key: AZURE_STORAGE_ACCOUNT_KEY
+        sync: false

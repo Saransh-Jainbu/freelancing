@@ -1210,7 +1210,7 @@ const startServer = async (initialPort) => {
 
 startServer(PORT);
 
-// Configure multer for memory storage (not disk)
+// Configure multer for memory storage only - no disk storage
 const storage = multer.memoryStorage();
 
 // File filter to only allow images
@@ -1223,19 +1223,21 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({ 
-  storage: storage,
+  storage: storage,  // Using memory storage only
   fileFilter: fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5 MB limit
   }
 });
 
-// Image upload endpoint with Azure Blob Storage
+// Image upload endpoint with Azure Blob Storage ONLY
 app.post('/api/upload/image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
+    
+    console.log('[Server] Uploading image to Azure:', req.file.originalname);
     
     // Upload to Azure Blob Storage
     const uploadResult = await uploadToAzure(
@@ -1254,7 +1256,7 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
     console.error('Error uploading image:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Error uploading image'
+      message: 'Error uploading image: ' + error.message
     });
   }
 });
@@ -1269,16 +1271,21 @@ app.put('/api/profile/:userId/avatar', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Avatar URL is required' });
     }
     
+    console.log(`[Server] Updating avatar for user ${userId}`);
+    console.log(`[Server] New avatar URL: ${avatarUrl}`);
+    
     // Delete old avatar from Azure if it exists
     if (oldAvatarUrl && oldAvatarUrl.includes('blob.core.windows.net')) {
       try {
+        console.log(`[Server] Attempting to delete old avatar: ${oldAvatarUrl}`);
         await deleteFromAzure(oldAvatarUrl);
+        console.log(`[Server] Old avatar deleted successfully`);
       } catch (deleteError) {
-        console.warn('Failed to delete old avatar, continuing anyway:', deleteError);
+        console.warn('[Server] Failed to delete old avatar, continuing anyway:', deleteError);
       }
     }
     
-    // Update profile avatar in database - store the URL with SAS token
+    // Update profile avatar in database
     await query(
       `UPDATE profiles SET avatar_url = $1 WHERE user_id = $2`,
       [avatarUrl, userId]
@@ -1287,11 +1294,11 @@ app.put('/api/profile/:userId/avatar', async (req, res) => {
     res.json({ success: true, avatarUrl });
   } catch (error) {
     console.error('Error updating avatar:', error);
-    res.status(500).json({ success: false, message: 'Server error updating avatar' });
+    res.status(500).json({ success: false, message: 'Server error updating avatar: ' + error.message });
   }
 });
 
-// Add to gigs endpoints - upload gig image with Azure
+// Add to gigs endpoints - upload gig image with Azure only
 app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
   try {
     const { gigId } = req.params;
@@ -1300,8 +1307,10 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
     
+    console.log(`[Server] Uploading gig image for gig ${gigId}`);
+    
     // Upload to Azure Blob Storage
-    const imageUrl = await uploadToAzure(
+    const uploadResult = await uploadToAzure(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype
@@ -1318,28 +1327,30 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
     // Save new image URL to gig in database
     await query(
       `UPDATE gigs SET image_url = $1 WHERE id = $2 RETURNING id`,
-      [imageUrl, gigId]
+      [uploadResult.url, gigId]
     );
     
     // Delete old image if it exists
     if (oldImageUrl && oldImageUrl.includes('blob.core.windows.net')) {
       try {
+        console.log(`[Server] Attempting to delete old gig image: ${oldImageUrl}`);
         await deleteFromAzure(oldImageUrl);
+        console.log(`[Server] Old gig image deleted successfully`);
       } catch (deleteError) {
-        console.warn('Failed to delete old gig image, continuing anyway:', deleteError);
+        console.warn('[Server] Failed to delete old gig image, continuing anyway:', deleteError);
       }
     }
     
     res.status(200).json({
       success: true,
       gigId,
-      imageUrl
+      imageUrl: uploadResult.url
     });
   } catch (error) {
     console.error('Error uploading gig image:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Error uploading gig image'
+      message: 'Error uploading gig image: ' + error.message 
     });
   }
 });

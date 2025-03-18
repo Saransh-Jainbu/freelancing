@@ -1,27 +1,29 @@
 import { API_URL } from '../constants';
 
-// Upload image to server
+// Upload image to Azure via server
 export const uploadImage = async (file) => {
   try {
     const formData = new FormData();
     formData.append('image', file);
     
-    console.log(`[Upload API] Uploading image:`, file.name);
+    console.log(`[Upload API] Uploading image to Azure:`, file.name);
     
     const response = await fetch(`${API_URL}/api/upload/image`, {
       method: 'POST',
       body: formData,
-      // Don't set Content-Type header, it will be set automatically with boundary
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Upload API] Upload failed: ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    console.log(`[Upload API] Image uploaded successfully:`, data);
     return data;
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error('[Upload API] Error uploading image:', error);
     throw error;
   }
 };
@@ -30,6 +32,11 @@ export const uploadImage = async (file) => {
 export const updateProfileAvatar = async (userId, avatarUrl, oldAvatarUrl) => {
   try {
     console.log(`[Upload API] Updating avatar for user:`, userId);
+    console.log(`[Upload API] New avatar URL:`, avatarUrl);
+    
+    if (oldAvatarUrl) {
+      console.log(`[Upload API] Old avatar URL to be deleted:`, oldAvatarUrl);
+    }
     
     const response = await fetch(`${API_URL}/api/profile/${userId}/avatar`, {
       method: 'PUT',
@@ -38,29 +45,31 @@ export const updateProfileAvatar = async (userId, avatarUrl, oldAvatarUrl) => {
       },
       body: JSON.stringify({ 
         avatarUrl,
-        oldAvatarUrl // Include old URL so server can delete it
+        oldAvatarUrl // Include old URL so server can delete it from Azure
       })
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Upload API] Avatar update failed: ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Failed to update avatar: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error updating avatar:', error);
+    console.error('[Upload API] Error updating avatar:', error);
     throw error;
   }
 };
 
-// Upload gig image
+// Upload gig image to Azure
 export const uploadGigImage = async (gigId, file) => {
   try {
     const formData = new FormData();
     formData.append('image', file);
     
-    console.log(`[Upload API] Uploading gig image for gig ${gigId}`);
+    console.log(`[Upload API] Uploading gig image to Azure for gig ${gigId}`);
     
     const response = await fetch(`${API_URL}/api/gigs/${gigId}/image`, {
       method: 'POST',
@@ -68,13 +77,15 @@ export const uploadGigImage = async (gigId, file) => {
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Upload API] Gig image upload failed: ${response.status} ${response.statusText}`, errorText);
       throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error uploading gig image:', error);
+    console.error('[Upload API] Error uploading gig image:', error);
     throw error;
   }
 };
