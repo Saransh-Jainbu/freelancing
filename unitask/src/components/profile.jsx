@@ -1,691 +1,492 @@
 import { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import { 
-  Edit2, 
-  MapPin, 
-  Clock, 
-  Star, 
-  Check, 
-  Globe, 
-  Plus,
-  Camera,
-  X,
-  ChevronDown,
-  Loader
-} from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContextValue';
 import { getProfile, updateProfile } from '../api/profile';
-// Reusing the Modal component from your existing code
-const Modal = ({ isOpen, onClose, children }) => {
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
+import { Loader, Edit2, Plus, X, Star, CheckCircle, Clock, User, AlertCircle } from 'lucide-react';
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-50 w-full max-w-lg bg-gray-900 rounded-xl shadow-xl">
-        {children}
-      </div>
-    </div>
-  );
-};
-
-Modal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  children: PropTypes.node.isRequired
-};
-
-// Edit Profile Modal Component
-const EditProfileModal = ({ isOpen, onClose, profileData, onSaveProfile }) => {
-  const [formData, setFormData] = useState({...profileData});
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setFormData({...profileData});
-  }, [profileData]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitLoading(true);
-    setError('');
-    
-    try {
-      // Assuming we have the userId from authentication context
-      const userId = 1; // This should come from auth context
-      await onSaveProfile(userId, formData);
-      onClose();
-    } catch (error) {
-      setError(error.message || 'Failed to update profile');
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSkillChange = (index, value) => {
-    const updatedSkills = [...formData.skills];
-    updatedSkills[index] = value;
-    setFormData(prev => ({
-      ...prev,
-      skills: updatedSkills
-    }));
-  };
-
-  const addSkill = () => {
-    setFormData(prev => ({
-      ...prev,
-      skills: [...prev.skills, '']
-    }));
-  };
-
-  const removeSkill = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      skills: prev.skills.filter((_, i) => i !== index)
-    }));
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Edit Profile</h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
-        </div>
-        
-        {error && (
-          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
-            {error}
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col items-center mb-4">
-            <div className="relative w-24 h-24 mb-3">
-              <img 
-                src={formData.avatar || "/api/placeholder/100/100"} 
-                alt="Profile" 
-                className="w-24 h-24 rounded-full object-cover border-2 border-purple-500"
-              />
-              <button
-                type="button"
-                className="absolute bottom-0 right-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center border-2 border-gray-900"
-              >
-                <Camera className="w-4 h-4 text-white" />
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Display Name
-            </label>
-            <input
-              type="text"
-              name="displayName"
-              value={formData.displayName}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Location
-            </label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Bio
-            </label>
-            <textarea
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              rows="4"
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Hourly Rate (USD)
-            </label>
-            <input
-              type="number"
-              name="hourlyRate"
-              value={formData.hourlyRate}
-              onChange={handleChange}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-gray-400">
-                Skills
-              </label>
-              <button 
-                type="button" 
-                onClick={addSkill}
-                className="text-purple-400 text-sm hover:text-purple-300 flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> Add Skill
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              {formData.skills.map((skill, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={skill}
-                    onChange={(e) => handleSkillChange(index, e.target.value)}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => removeSkill(index)}
-                    className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-red-400"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-white"
-              disabled={submitLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity text-white flex items-center gap-2"
-              disabled={submitLoading}
-            >
-              {submitLoading ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Saving...
-                </>
-              ) : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </Modal>
-  );
-};
-
-EditProfileModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  profileData: PropTypes.object.isRequired,
-  onSaveProfile: PropTypes.func.isRequired
-};
-
-// Profile Page Component
 const ProfilePage = () => {
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [profileData, setProfileData] = useState({
-    displayName: "",
-    title: "",
-    location: "",
-    memberSince: "",
-    bio: "",
-    hourlyRate: 0,
-    completionRate: 0,
-    responseTime: "",
-    totalEarnings: "$0",
-    totalProjects: 0,
-    rating: 0,
-    reviews: 0,
-    skills: [],
-    isVerified: false,
-    languages: []
-  });
+  const { userId: urlUserId } = useParams();
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  
+  // Use URL param if available, otherwise use current user's ID
+  const userId = urlUserId || (currentUser ? currentUser.id : null);
+  
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedProfile, setEditedProfile] = useState({});
+  const [skills, setSkills] = useState([]);
+  const [newSkill, setNewSkill] = useState('');
+  const [languages, setLanguages] = useState([]);
+  const [newLanguage, setNewLanguage] = useState('');
+
+  const isOwnProfile = !urlUserId || (currentUser && urlUserId === String(currentUser.id));
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const loadProfile = async () => {
+      if (!userId) {
+        return;
+      }
+      
       try {
         setLoading(true);
-        // Assuming we have the userId from authentication context
-        const userId = 1; // This should come from auth context
-        const data = await getProfile(userId);
+        const profileData = await getProfile(userId);
         
-        setProfileData({
-          displayName: data.display_name,
-          title: data.title || '',
-          location: data.location || '',
-          memberSince: data.member_since,
-          bio: data.bio || '',
-          hourlyRate: data.hourly_rate || 0,
-          completionRate: data.completion_rate,
-          responseTime: data.response_time || 'Under 2 hours',
-          totalEarnings: `$${data.total_earnings || 0}`,
-          totalProjects: data.total_projects,
-          rating: data.rating,
-          reviews: data.reviews,
-          skills: data.skills || [],
-          isVerified: data.is_verified,
-          languages: data.languages || []
+        console.log(`[Profile] Loaded profile for user ${userId}:`, profileData);
+        
+        setProfile(profileData);
+        
+        // Initialize edited profile state
+        setEditedProfile({
+          displayName: profileData.display_name || '',
+          title: profileData.title || '',
+          location: profileData.location || '',
+          bio: profileData.bio || '',
+          hourlyRate: profileData.hourly_rate || '',
         });
-        setError('');
-      } catch (err) {
-        console.error('Failed to load profile:', err);
+        
+        // Initialize skills and languages
+        setSkills(profileData.skills || []);
+        setLanguages(profileData.languages || []);
+      } catch (error) {
+        console.error('[Profile] Failed to load profile:', error);
         setError('Failed to load profile. Please try again.');
       } finally {
         setLoading(false);
       }
     };
     
-    fetchProfile();
-  }, []);
+    loadProfile();
+  }, [userId, currentUser]);
 
-  const handleSaveProfile = async (userId, updatedProfile) => {
-    await updateProfile(userId, updatedProfile);
-    const data = await getProfile(userId);
+  const handleEditProfile = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    // Reset edited values
+    if (profile) {
+      setEditedProfile({
+        displayName: profile.display_name,
+        title: profile.title,
+        location: profile.location,
+        bio: profile.bio,
+        hourlyRate: profile.hourly_rate,
+      });
+      setSkills(profile.skills || []);
+      setLanguages(profile.languages || []);
+    }
     
-    setProfileData({
-      displayName: data.display_name,
-      title: data.title || '',
-      location: data.location || '',
-      memberSince: data.member_since,
-      bio: data.bio || '',
-      hourlyRate: data.hourly_rate || 0,
-      completionRate: data.completion_rate,
-      responseTime: data.response_time || 'Under 2 hours',
-      totalEarnings: `$${data.total_earnings || 0}`,
-      totalProjects: data.total_projects,
-      rating: data.rating,
-      reviews: data.reviews,
-      skills: data.skills || [],
-      isVerified: data.is_verified,
-      languages: data.languages || []
-    });
+    setIsEditing(false);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditedProfile(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleAddSkill = () => {
+    if (newSkill && !skills.includes(newSkill)) {
+      setSkills([...skills, newSkill]);
+      setNewSkill('');
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    setSkills(skills.filter(skill => skill !== skillToRemove));
+  };
+
+  const handleAddLanguage = () => {
+    const languageWithProficiency = newLanguage + " (Fluent)";
+    if (newLanguage && !languages.includes(languageWithProficiency)) {
+      setLanguages([...languages, languageWithProficiency]);
+      setNewLanguage('');
+    }
+  };
+
+  const handleRemoveLanguage = (langToRemove) => {
+    setLanguages(languages.filter(lang => lang !== langToRemove));
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      setLoading(true);
+      
+      const updatedProfile = await updateProfile(userId, {
+        displayName: editedProfile.displayName,
+        title: editedProfile.title,
+        location: editedProfile.location,
+        bio: editedProfile.bio,
+        hourlyRate: editedProfile.hourlyRate,
+        skills,
+        languages
+      });
+      
+      setProfile(updatedProfile);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('[Profile] Failed to save profile:', error);
+      setError('Failed to save profile changes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <Loader className="w-10 h-10 text-purple-500 animate-spin mb-4" />
-          <p className="text-gray-400">Loading profile...</p>
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
+        <Loader className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+        <p className="text-gray-400">Loading profile...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black text-white p-6">
+        <div className="max-w-4xl mx-auto bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-4">Error Loading Profile</h2>
+          <p className="text-gray-300 mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
   }
 
+  if (!profile) return null;
+
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        profileData={profileData}
-        onSaveProfile={handleSaveProfile}
-        isLoading={loading}
-      />
-
-      {/* Header */}
-      <div className="border-b border-white/5 bg-black/95 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
-              <p className="text-gray-400 mt-1">Manage your freelancer profile</p>
+    <div className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Profile Header */}
+        <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10 mb-8 relative">
+          {/* Profile Avatar */}
+          <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+            <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center text-4xl font-bold relative">
+              {profile.avatar_url ? (
+                <img 
+                  src={profile.avatar_url} 
+                  alt={profile.display_name} 
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                profile.display_name?.charAt(0).toUpperCase()
+              )}
             </div>
-            <button 
-              className="px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 flex items-center gap-2 transition-colors"
-              onClick={() => setIsEditModalOpen(true)}
-            >
-              <Edit2 className="w-4 h-4" />
-              <span>Edit Profile</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Error message if any */}
-      {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-          <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300">
-            {error}
-            <button 
-              onClick={() => window.location.reload()} 
-              className="ml-2 underline hover:text-white"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Profile Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Profile Info */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Profile Card */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 overflow-hidden">
-              {/* Profile Banner */}
-              <div className="h-32 bg-gradient-to-r from-purple-600 to-pink-600 relative">
-                <div className="absolute -bottom-12 left-6">
-                  <div className="relative">
-                    <img 
-                      src="/api/placeholder/100/100" 
-                      alt="Profile" 
-                      className="w-24 h-24 rounded-full object-cover border-4 border-gray-900"
-                    />
-                    {profileData.isVerified && (
-                      <div className="absolute bottom-0 right-0 bg-green-500 p-1 rounded-full border-2 border-gray-900">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-14 px-6 pb-6">
-                <h2 className="text-xl font-bold">{profileData.displayName}</h2>
-                <p className="text-gray-400 mb-4">{profileData.title}</p>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <MapPin className="w-4 h-4" />
-                    <span>{profileData.location}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Clock className="w-4 h-4" />
-                    <span>Member since {profileData.memberSince}</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-white/5">
-                  <p className="text-gray-400 text-sm leading-relaxed">
-                    {profileData.bio}
-                  </p>
-                </div>
-
-                <button 
-                  className="w-full mt-4 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 flex items-center justify-center gap-2 transition-colors"
-                  onClick={() => setIsEditModalOpen(true)}
-                >
-                  <Edit2 className="w-4 h-4" />
-                  <span>Edit Profile</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Skills Card */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-              <h3 className="text-lg font-semibold mb-4">Skills</h3>
-              <div className="flex flex-wrap gap-2">
-                {profileData.skills.map((skill, index) => (
-                  <span 
-                    key={index} 
-                    className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Languages Card */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-              <h3 className="text-lg font-semibold mb-4">Languages</h3>
-              <div className="space-y-2">
-                {profileData.languages.map((language, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-gray-400" />
-                    <span>{language}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Stats & Reviews */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <Dollar className="w-6 h-6 text-green-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{profileData.totalEarnings}</h3>
-                    <p className="text-gray-400 text-sm">Total Earnings</p>
-                  </div>
-                </div>
-                <div className="h-1 w-full bg-white/5 rounded-full">
-                  <div className="h-1 w-3/4 bg-gradient-to-r from-green-500 to-teal-500 rounded-full" />
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{profileData.totalProjects}</h3>
-                    <p className="text-gray-400 text-sm">Completed Projects</p>
-                  </div>
-                </div>
-                <div className="h-1 w-full bg-white/5 rounded-full">
-                  <div className="h-1 w-5/6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" />
-                </div>
-              </div>
-            </div>
-
-            {/* Key Metrics */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-              <h3 className="text-lg font-semibold mb-4">Key Metrics</h3>
+            
+            <div className="flex-1 text-center md:text-left">
+              {/* Edit Mode: Display Name */}
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="displayName"
+                  value={editedProfile.displayName}
+                  onChange={handleInputChange}
+                  className="mb-2 w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-xl font-bold"
+                />
+              ) : (
+                <h1 className="text-3xl font-bold mb-2">{profile.display_name}</h1>
+              )}
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white/5 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Star className="w-4 h-4 text-yellow-400" />
-                    <span className="text-sm text-gray-400">Rating</span>
-                  </div>
-                  <p className="text-2xl font-semibold">{profileData.rating} <span className="text-gray-400 text-sm">/ 5</span></p>
-                  <p className="text-gray-400 text-sm mt-1">{profileData.reviews} reviews</p>
+              {/* Edit Mode: Title */}
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="title"
+                  value={editedProfile.title || ''}
+                  onChange={handleInputChange}
+                  placeholder="Your professional title"
+                  className="mb-4 w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-lg"
+                />
+              ) : (
+                <p className="text-xl text-gray-300 mb-4">{profile.title || 'University Student'}</p>
+              )}
+              
+              <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+                {/* Location */}
+                <div className="bg-white/5 px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="location"
+                      value={editedProfile.location || ''}
+                      onChange={handleInputChange}
+                      placeholder="Your location"
+                      className="w-32 px-2 py-1 bg-transparent focus:outline-none"
+                    />
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                      </svg>
+                      <span>{profile.location || 'Not specified'}</span>
+                    </>
+                  )}
                 </div>
-
-                <div className="bg-white/5 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Check className="w-4 h-4 text-green-400" />
-                    <span className="text-sm text-gray-400">Completion Rate</span>
-                  </div>
-                  <p className="text-2xl font-semibold">{profileData.completionRate}%</p>
-                  <p className="text-gray-400 text-sm mt-1">On-time delivery</p>
+                
+                {/* Member Since */}
+                <div className="bg-white/5 px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  <span>Member since {profile.member_since || 'Recently'}</span>
                 </div>
-
-                <div className="bg-white/5 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm text-gray-400">Response Time</span>
+                
+                {/* Edit Mode: Hourly Rate */}
+                {isEditing ? (
+                  <div className="bg-white/5 px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                    <span>$</span>
+                    <input
+                      type="number"
+                      name="hourlyRate"
+                      value={editedProfile.hourlyRate || ''}
+                      onChange={handleInputChange}
+                      placeholder="Hourly rate"
+                      className="w-16 px-2 py-0 bg-transparent focus:outline-none"
+                    />
+                    <span>/hr</span>
                   </div>
-                  <p className="text-xl font-semibold">{profileData.responseTime}</p>
-                  <p className="text-gray-400 text-sm mt-1">Average</p>
-                </div>
+                ) : profile.hourly_rate ? (
+                  <div className="bg-white/5 px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>${profile.hourly_rate}/hr</span>
+                  </div>
+                ) : null}
               </div>
             </div>
-
-            {/* Reviews Section */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold">Client Reviews</h3>
-                <div className="flex items-center gap-1">
-                  <span className="text-yellow-400">★</span>
-                  <span>{profileData.rating}</span>
-                  <span className="text-gray-400">({profileData.reviews})</span>
-                </div>
-              </div>
-
-              {/* Sample Review Item */}
-              <div className="border-b border-white/5 pb-4 mb-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <img 
-                    src="/api/placeholder/40/40" 
-                    alt="Client" 
-                    className="w-10 h-10 rounded-full"
-                  />
-                  <div>
-                    <h4 className="font-medium">Daniel Brown</h4>
-                    <div className="flex items-center gap-2">
-                      <div className="flex">
-                        <span className="text-yellow-400 text-sm">★★★★★</span>
-                      </div>
-                      <span className="text-gray-400 text-sm">2 weeks ago</span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm">
-                  Alex delivered exceptional work on our e-commerce platform. The code is clean, well-documented, and he implemented all the features we requested. Very responsive and professional throughout the project.
-                </p>
-              </div>
-
-              {/* Sample Review Item */}
-              <div className="border-b border-white/5 pb-4 mb-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <img 
-                    src="/api/placeholder/40/40" 
-                    alt="Client" 
-                    className="w-10 h-10 rounded-full"
-                  />
-                  <div>
-                    <h4 className="font-medium">Sarah Wilson</h4>
-                    <div className="flex items-center gap-2">
-                      <div className="flex">
-                        <span className="text-yellow-400 text-sm">★★★★★</span>
-                      </div>
-                      <span className="text-gray-400 text-sm">1 month ago</span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm">
-                  Great communication and excellent work. Alex helped us redesign our dashboard UI and improved the overall user experience. Would definitely hire again for future projects.
-                </p>
-              </div>
-
-              <button className="w-full mt-2 text-gray-400 hover:text-white flex items-center justify-center gap-1 py-2">
-                <span>View all reviews</span>
-                <ChevronDown className="w-4 h-4" />
+          </div>
+          
+          {/* Edit Button for Own Profile */}
+          {isOwnProfile && !isEditing && (
+            <button 
+              onClick={handleEditProfile}
+              className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors group"
+            >
+              <Edit2 className="w-5 h-5 group-hover:text-purple-400" />
+            </button>
+          )}
+          
+          {/* Edit/Cancel Buttons */}
+          {isEditing && (
+            <div className="flex gap-3 mt-6 justify-end">
+              <button 
+                onClick={handleCancelEdit}
+                className="px-4 py-2 border border-white/10 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                Cancel
               </button>
+              <button 
+                onClick={handleSaveProfile}
+                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:opacity-90 transition-opacity"
+              >
+                Save Changes
+              </button>
+            </div>
+          )}
+        </div>
+        
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column */}
+          <div className="lg:col-span-2">
+            <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10 mb-8">
+              <h2 className="text-xl font-semibold mb-4">About Me</h2>
+              
+              {/* Edit Mode: Bio */}
+              {isEditing ? (
+                <textarea
+                  name="bio"
+                  value={editedProfile.bio || ''}
+                  onChange={handleInputChange}
+                  placeholder="Tell others about yourself, your experience and what you do..."
+                  rows="6"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                ></textarea>
+              ) : (
+                <p className="text-gray-300 whitespace-pre-wrap">
+                  {profile.bio || 'No biography available.'}
+                </p>
+              )}
+            </div>
+            
+            {/* Skills */}
+            <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10 mb-8">
+              <h2 className="text-xl font-semibold mb-4">Skills</h2>
+              
+              {/* Edit Mode: Skills Input */}
+              {isEditing && (
+                <div className="mb-4 flex gap-2">
+                  <input
+                    type="text"
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    placeholder="Add a skill"
+                    className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
+                  />
+                  <button
+                    onClick={handleAddSkill}
+                    className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+              
+              <div className="flex flex-wrap gap-2">
+                {skills.length > 0 ? (
+                  skills.map((skill, index) => (
+                    <div key={index} className="bg-white/5 px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                      <span>{skill}</span>
+                      {/* Remove skill button when editing */}
+                      {isEditing && (
+                        <button 
+                          onClick={() => handleRemoveSkill(skill)} 
+                          className="ml-1 text-gray-400 hover:text-white"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">No skills listed yet.</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Languages */}
+            <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+              <h2 className="text-xl font-semibold mb-4">Languages</h2>
+              
+              {/* Edit Mode: Languages Input */}
+              {isEditing && (
+                <div className="mb-4 flex gap-2">
+                  <input
+                    type="text"
+                    value={newLanguage}
+                    onChange={(e) => setNewLanguage(e.target.value)}
+                    placeholder="Add a language"
+                    className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddLanguage()}
+                  />
+                  <button
+                    onClick={handleAddLanguage}
+                    className="p-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+              
+              <div className="flex flex-wrap gap-2">
+                {languages.length > 0 ? (
+                  languages.map((language, index) => (
+                    <div key={index} className="bg-white/5 px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                      <span>{language}</span>
+                      {/* Remove language button when editing */}
+                      {isEditing && (
+                        <button 
+                          onClick={() => handleRemoveLanguage(language)} 
+                          className="ml-1 text-gray-400 hover:text-white"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500">No languages listed yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Right Column */}
+          <div>
+            {/* Stats */}
+            <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10 mb-8">
+              <h2 className="text-xl font-semibold mb-4">Stats</h2>
+              
+              <div className="space-y-4">
+                {/* Rating */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Star className="w-5 h-5 text-yellow-400 mr-2 fill-yellow-400" />
+                    <span>Rating</span>
+                  </div>
+                  <span className="font-semibold">{profile.rating || '0.0'}/5.0</span>
+                </div>
+                
+                {/* Verified */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-5 h-5 text-green-400 mr-2" />
+                    <span>Verified</span>
+                  </div>
+                  <span className="font-semibold">{profile.is_verified ? 'Yes' : 'No'}</span>
+                </div>
+                
+                {/* Response Time */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <Clock className="w-5 h-5 text-blue-400 mr-2" />
+                    <span>Response Time</span>
+                  </div>
+                  <span className="font-semibold">{profile.response_time || 'N/A'}</span>
+                </div>
+                
+                {/* Projects */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>Projects</span>
+                  </div>
+                  <span className="font-semibold">{profile.total_projects || '0'}</span>
+                </div>
+                
+                {/* Completion Rate */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-orange-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Completion Rate</span>
+                  </div>
+                  <span className="font-semibold">{profile.completion_rate ? `${profile.completion_rate}%` : 'N/A'}</span>
+                </div>
+                
+                {/* Total Earnings */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Total Earnings</span>
+                  </div>
+                  <span className="font-semibold">${profile.total_earnings || '0'}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-};
-    
-const Dollar = (props) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="24" 
-    height="24" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    {...props}
-  >
-    <line x1="12" y1="1" x2="12" y2="23"></line>
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-  </svg>
-);
-
-const CheckCircle = (props) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="24" 
-    height="24" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    {...props}
-  >
-    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-    <polyline points="22 4 12 14.01 9 11.01"></polyline>
-  </svg>
-);
-
-CheckCircle.propTypes = {
-  className: PropTypes.string
 };
 
 export default ProfilePage;

@@ -58,12 +58,19 @@ const AppRoutes = () => {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/oauth-callback" element={<OAuthCallback />} />
       
-      {/* Protected routes */}
+      {/* Protected routes with dynamic path support */}
       <Route path="/profile" element={
         <ProtectedRoute>
           <ProfilePage />
         </ProtectedRoute>
       } />
+      <Route path="/profile/:userId" element={
+        <ProtectedRoute>
+          <ProfilePage />
+        </ProtectedRoute>
+      } />
+      
+      {/* Other protected routes */}
       <Route path="/dashboard" element={
         <ProtectedRoute>
           <DashboardPage />
