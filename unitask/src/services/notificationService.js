@@ -19,6 +19,36 @@ const registerServiceWorker = async () => {
   }
 };
 
+// Check if permission is blocked (permission prompt has been ignored multiple times)
+const isPermissionBlocked = async () => {
+  if (!canUseNotifications()) return false;
+  
+  // First check the standard Notification.permission
+  if (Notification.permission === 'denied') {
+    return true;
+  }
+  
+  // If permission is default (prompt), we need to check if it might be blocked
+  if (Notification.permission === 'default') {
+    try {
+      // Try to request permission
+      const result = await Promise.race([
+        Notification.requestPermission(),
+        // If no prompt appears after 300ms, it's likely blocked
+        new Promise(resolve => setTimeout(() => resolve('no_prompt'), 300))
+      ]);
+      
+      // If we got 'no_prompt' but permission is still default, the prompt is likely blocked
+      return result === 'no_prompt' && Notification.permission === 'default';
+    } catch (err) {
+      // In some browsers, this error indicates the permission prompt is blocked
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 // Request notification permission
 const requestNotificationPermission = async () => {
   if (!canUseNotifications()) return false;
@@ -96,6 +126,7 @@ export {
   registerServiceWorker,
   requestNotificationPermission,
   getNotificationPermission,
+  isPermissionBlocked,
   showNotification,
   showChatNotification,
   playNotificationSound
