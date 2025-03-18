@@ -201,9 +201,41 @@ const initDb = async () => {
 // Initialize database on server start
 initDb();
 
+// Setup database schema for chat enhancements
+const setupDatabaseSchema = async () => {
+  try {
+    // Add read receipt columns to messages table
+    await query(`
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE;
+      
+      -- Add last_active column to users table to track online status
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active TIMESTAMP WITH TIME ZONE;
+      
+      -- Add system message flag
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_system BOOLEAN DEFAULT false;
+      
+      -- Add gig reference columns to conversations
+      ALTER TABLE conversations ADD COLUMN IF NOT EXISTS gig_id INTEGER;
+      ALTER TABLE conversations ADD COLUMN IF NOT EXISTS gig_title TEXT;
+      
+      -- Mark existing messages as read
+      UPDATE messages SET is_read = true WHERE is_read IS NULL;
+    `);
+    
+    console.log('Database schema updated for chat enhancements');
+  } catch (err) {
+    console.error('Error updating database schema for chat:', err);
+  }
+};
+
+// Run schema updates on startup
+setupDatabaseSchema();
+
 // Mapping of online users and their socket IDs
 const onlineUsers = new Map(); // userId -> socketId
 const userSockets = new Map(); // socketId -> userId
+const userLastUpdateTimes = new Map(); // userId -> timestamp
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -386,9 +418,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// Store last timestamp we updated user's last_active in DB
-const userLastUpdateTimes = new Map();
-
 // Helper function to update user's last_active timestamp
 async function updateUserLastActive(userId) {
   try {
@@ -432,6 +461,51 @@ async function markMessagesAsRead(conversationId, messageIds, userId) {
   } catch (error) {
     console.error('Error marking messages as read:', error);
     return false;
+  }
+}
+
+// Helper function to save a message
+async function saveMessage(conversationId, senderId, content, isSystem = false) {
+  try {
+    const result = await query(
+      `INSERT INTO messages (conversation_id, sender_id, content, created_at, is_read, is_system)
+       VALUES ($1, $2, $3, NOW(), false, $4)
+       RETURNING id, conversation_id, sender_id, content, created_at, is_read, is_system`,
+      [conversationId, senderId, content, isSystem]
+    );
+    
+    const message = result.rows[0];
+    
+    // Get sender information
+    const senderInfo = await query(
+      'SELECT id, display_name, avatar_url FROM users WHERE id = $1',
+      [senderId]
+    );
+    
+    if (senderInfo.rows.length > 0) {
+      message.sender = senderInfo.rows[0];
+    }
+    
+    return message;
+  } catch (error) {
+    console.error('Error saving message:', error);
+    throw error;
+  }
+}
+
+// Helper function to update conversation's last message
+async function updateConversationLastMessage(conversationId, lastMessage, lastMessageSenderId) {
+  try {
+    await query(
+      `UPDATE conversations SET 
+       last_message = $1, 
+       last_message_sender_id = $2,
+       updated_at = NOW()
+       WHERE id = $3`,
+      [lastMessage, lastMessageSenderId, conversationId]
+    );
+  } catch (error) {
+    console.error('Error updating conversation last message:', error);
   }
 }
 
@@ -1600,3 +1674,90 @@ async function createGigContextConversation(participantIds, gigInfo) {
     client.release();
   }
 }
+
+// Create new conversation with initial system message for gig context if needed
+async function createConversation(req, res) {
+  const { participantIds, gigInfo, includeContextMessage } = req.body;
+  
+  if (!participantIds || participantIds.length < 2) {
+    return res.status(400).json({
+      success: false,
+      message: 'At least two participants are required'
+    });
+  }
+
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Create conversation
+    const conversationResult = await client.query(
+      `INSERT INTO conversations (created_at, updated_at) 
+       VALUES (NOW(), NOW()) 
+       RETURNING *`,
+      []
+    );
+    
+    const conversation = conversationResult.rows[0];
+    
+    // Add participants
+    for (const userId of participantIds) {
+      await client.query(
+        `INSERT INTO conversation_participants (conversation_id, user_id) 
+         VALUES ($1, $2)`,
+        [conversation.id, userId]
+      );
+    }
+    
+    // If gig info is provided and includeContextMessage is true, add a system message with context
+    if (gigInfo && gigInfo.gig_id && gigInfo.title && includeContextMessage) {
+      // Add gig reference to conversation
+      await client.query(
+        `UPDATE conversations 
+         SET gig_id = $1, gig_title = $2 
+         WHERE id = $3`,
+        [gigInfo.gig_id, gigInfo.title, conversation.id]
+      );
+      
+      // Add system message about the gig
+      const systemMessage = `This conversation is about the gig: "${gigInfo.title}"`;
+      
+      await client.query(
+        `INSERT INTO messages (conversation_id, sender_id, content, created_at, is_read, is_system) 
+         VALUES ($1, $2, $3, NOW(), false, true)`,
+        [conversation.id, participantIds[0], systemMessage]
+      );
+    }
+    
+    await client.query('COMMIT');
+    
+    // Return the created conversation with participants
+    const result = await client.query(
+      `SELECT c.*, array_agg(json_build_object('id', u.id, 'email', u.email, 'display_name', u.display_name, 'avatar_url', u.avatar_url)) as participants
+       FROM conversations c
+       JOIN conversation_participants cp ON c.id = cp.conversation_id
+       JOIN users u ON cp.user_id = u.id
+       WHERE c.id = $1
+       GROUP BY c.id`,
+      [conversation.id]
+    );
+    
+    return res.json({
+      success: true,
+      conversation: result.rows[0]
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating conversation:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create conversation'
+    });
+  } finally {
+    client.release();
+  }
+}
+
+// Replace your existing conversation creation route with this updated version
+app.post('/api/conversations', createConversation);
