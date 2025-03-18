@@ -150,17 +150,24 @@ const ChatPage = () => {
     
     try {
       setSearchLoading(true);
-      // IMPORTANT: Use the API directly with the /api prefix
-      const response = await fetch(`${API_URL}/api/users/search?q=${encodeURIComponent(query || '')}&currentUserId=${currentUser.id}`);
+      
+      // CRITICAL FIX: Explicitly use the fixed API endpoint with /api prefix
+      const apiUrl = `${API_URL}/api/users/search?q=${encodeURIComponent(query || '')}&currentUserId=${currentUser.id}`;
+      console.log('[ChatPage] Searching users at URL:', apiUrl);
+      
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[ChatPage] Search failed: ${response.status} ${response.statusText}`, errorText);
         throw new Error(`Search failed: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      setSearchResults(data.users);
+      setSearchResults(data.users || []);
     } catch (err) {
-      console.error('Search failed:', err);
+      console.error('[ChatPage] Search error:', err);
+      setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
@@ -179,4 +186,49 @@ const ChatPage = () => {
       
       // Close modal
       setIsNewChatModalOpen(false);
-      
+    } catch (err) {
+      console.error('Failed to start conversation:', err);
+      setError('Failed to start a new conversation. Please try again.');
+    }
+  };
+
+  return (
+    <div className="chat-page">
+      <ChatList
+        conversations={conversations}
+        selectedConversation={selectedConversation}
+        onSelectConversation={setSelectedConversation}
+        onNewChat={() => setIsNewChatModalOpen(true)}
+      />
+      <ChatWindow
+        conversation={selectedConversation}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+      />
+      {isNewChatModalOpen && (
+        <div className="new-chat-modal">
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+          {searchLoading ? (
+            <p>Loading...</p>
+          ) : (
+            <ul>
+              {searchResults.map(user => (
+                <li key={user.id} onClick={() => handleStartConversation(user.id)}>
+                  {user.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button onClick={() => setIsNewChatModalOpen(false)}>Close</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ChatPage;
