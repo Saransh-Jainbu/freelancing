@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { X, Plus, Loader } from 'lucide-react';
+import { X, Plus, Loader, Image, Camera } from 'lucide-react';
 import { createGig } from '../../api/gigs';
+import { uploadImage } from '../../api/upload';
 
 const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
   const [formData, setFormData] = useState({
@@ -12,6 +13,10 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
 
   if (!isOpen) return null;
 
@@ -21,6 +26,24 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+    
+    setImageFile(file);
   };
 
   const handleSubmit = async (e) => {
@@ -37,6 +60,7 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
       setLoading(true);
       setError('');
       
+      // Create gig first
       const newGig = await createGig({
         userId,
         title: formData.title,
@@ -45,7 +69,35 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
         price: formData.price
       });
       
-      onGigAdded(newGig);
+      // If there's an image to upload, do it now
+      let finalGig = newGig;
+      if (imageFile && newGig.id) {
+        setUploadingImage(true);
+        try {
+          const formData = new FormData();
+          formData.append('image', imageFile);
+          
+          const response = await fetch(`${API_URL}/api/gigs/${newGig.id}/image`, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (response.ok) {
+            const imageData = await response.json();
+            finalGig = {
+              ...newGig,
+              image_url: imageData.imageUrl
+            };
+          }
+        } catch (imageError) {
+          console.error('Error uploading gig image:', imageError);
+          // Continue even if image upload fails
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+      
+      onGigAdded(finalGig);
       onClose();
     } catch (error) {
       console.error('Error creating gig:', error);
@@ -78,6 +130,43 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
           )}
           
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Image upload area */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">
+                Gig Image
+              </label>
+              <div 
+                onClick={handleImageClick}
+                className="w-full h-40 bg-white/5 border border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 transition-colors group"
+              >
+                {imagePreview ? (
+                  <div className="relative w-full h-full">
+                    <img 
+                      src={imagePreview} 
+                      alt="Gig preview" 
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Camera className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Image className="w-10 h-10 text-gray-500 mb-2" />
+                    <p className="text-sm text-gray-400">Click to upload an image</p>
+                    <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF, max 5MB</p>
+                  </>
+                )}
+              </div>
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                accept="image/jpeg,image/png,image/gif"
+                className="hidden"
+                onChange={handleImageChange}
+              />
+            </div>
+            
             <div>
               <label className="block text-sm text-gray-400 mb-1">
                 Gig Title

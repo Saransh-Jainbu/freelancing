@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextValue';
 import { getProfile, updateProfile } from '../api/profile';
-import { Loader, Edit2, Plus, X, Star, CheckCircle, Clock, User, AlertCircle } from 'lucide-react';
+import { uploadImage, updateProfileAvatar } from '../api/upload';
+import { Loader, Edit2, Plus, X, Star, CheckCircle, Clock, User, AlertCircle, Camera } from 'lucide-react';
 
 const ProfilePage = () => {
   const { userId: urlUserId } = useParams();
@@ -21,6 +22,8 @@ const ProfilePage = () => {
   const [newSkill, setNewSkill] = useState('');
   const [languages, setLanguages] = useState([]);
   const [newLanguage, setNewLanguage] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const isOwnProfile = !urlUserId || (currentUser && urlUserId === String(currentUser.id));
 
@@ -137,6 +140,42 @@ const ProfilePage = () => {
     }
   };
 
+  const handleAvatarClick = () => {
+    if (isOwnProfile && !avatarUploading) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setAvatarUploading(true);
+      
+      // Upload image to server
+      const uploadResult = await uploadImage(file);
+      
+      if (uploadResult.success) {
+        // Update profile with new avatar URL
+        const result = await updateProfileAvatar(userId, uploadResult.fileUrl);
+        
+        if (result.success) {
+          // Update local state
+          setProfile({
+            ...profile,
+            avatar_url: uploadResult.fileUrl
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      setError('Failed to upload avatar. Please try again.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
@@ -173,17 +212,54 @@ const ProfilePage = () => {
         <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10 mb-8 relative">
           {/* Profile Avatar */}
           <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
-            <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center text-4xl font-bold relative">
+            <div 
+              className={`w-32 h-32 bg-white/10 rounded-full flex items-center justify-center text-4xl font-bold relative overflow-hidden ${isOwnProfile ? 'cursor-pointer group' : ''}`}
+              onClick={handleAvatarClick}
+            >
               {profile.avatar_url ? (
-                <img 
-                  src={profile.avatar_url} 
-                  alt={profile.display_name} 
-                  className="w-full h-full rounded-full object-cover"
-                />
+                <>
+                  <img 
+                    src={profile.avatar_url} 
+                    alt={profile.display_name} 
+                    className="w-full h-full object-cover"
+                  />
+                  {isOwnProfile && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      {avatarUploading ? (
+                        <Loader className="w-8 h-8 text-white animate-spin" />
+                      ) : (
+                        <Camera className="w-8 h-8 text-white" />
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
-                profile.display_name?.charAt(0).toUpperCase()
+                <>
+                  {profile.display_name?.charAt(0).toUpperCase()}
+                  {isOwnProfile && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      {avatarUploading ? (
+                        <Loader className="w-8 h-8 text-white animate-spin" />
+                      ) : (
+                        <Camera className="w-8 h-8 text-white" />
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
+            
+            {/* Hidden file input for avatar upload */}
+            {isOwnProfile && (
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+                disabled={avatarUploading}
+              />
+            )}
             
             <div className="flex-1 text-center md:text-left">
               {/* Edit Mode: Display Name */}

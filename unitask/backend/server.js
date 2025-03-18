@@ -8,6 +8,10 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const http = require('http');
 const socketIo = require('socket.io');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const fs = require('fs');
 
 // Load environment variables
 dotenv.config();
@@ -1166,6 +1170,122 @@ app.get('/api/gigs/:gigId/details', async (req, res) => {
   } catch (error) {
     console.error('Gig details fetch error:', error);
     res.status(500).json({ success: false, message: 'Server error fetching gig details' });
+  }
+});
+
+// Configure multer storage for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, 'uploads');
+    // Create uploads directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename with original extension
+    const uniqueFilename = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueFilename);
+  }
+});
+
+// File filter to only allow images
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Not an image! Please upload only images.'), false);
+  }
+};
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5 MB limit
+  }
+});
+
+// Serve static files from the uploads directory
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Image upload endpoint
+app.post('/api/upload/image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    
+    // File uploaded successfully
+    const fileUrl = `${process.env.SERVER_URL || 'http://localhost:' + PORT}/api/uploads/${req.file.filename}`;
+    
+    res.status(200).json({
+      success: true,
+      filename: req.file.filename,
+      fileUrl: fileUrl
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error uploading image'
+    });
+  }
+});
+
+// Update profile with avatar
+app.put('/api/profile/:userId/avatar', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { avatarUrl } = req.body;
+    
+    if (!avatarUrl) {
+      return res.status(400).json({ success: false, message: 'Avatar URL is required' });
+    }
+    
+    // Update profile avatar
+    await query(
+      `UPDATE profiles SET avatar_url = $1 WHERE user_id = $2`,
+      [avatarUrl, userId]
+    );
+    
+    res.json({ success: true, avatarUrl });
+  } catch (error) {
+    console.error('Error updating avatar:', error);
+    res.status(500).json({ success: false, message: 'Server error updating avatar' });
+  }
+});
+
+// Add to gigs endpoints - upload gig image
+app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
+  try {
+    const { gigId } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    
+    // File uploaded successfully
+    const fileUrl = `${process.env.SERVER_URL || 'http://localhost:' + PORT}/api/uploads/${req.file.filename}`;
+    
+    // Save image URL to gig in database
+    await query(
+      `UPDATE gigs SET image_url = $1 WHERE id = $2 RETURNING id`,
+      [fileUrl, gigId]
+    );
+    
+    res.status(200).json({
+      success: true,
+      gigId,
+      imageUrl: fileUrl
+    });
+  } catch (error) {
+    console.error('Error uploading gig image:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error uploading gig image'
+    });
   }
 });
 
