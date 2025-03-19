@@ -100,6 +100,39 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
   
   const partner = getPartner();
   const isOnline = isUserOnline(partner?.id);
+  
+  // Add a state for formatted last seen time that updates periodically
+  const [formattedLastSeen, setFormattedLastSeen] = useState('');
+  
+  // Update last seen time format every minute
+  useEffect(() => {
+    if (!partner || isOnline) return;
+    
+    const updateLastSeen = () => {
+      if (partner?.last_active) {
+        const lastActiveDate = new Date(partner.last_active);
+        const now = new Date();
+        const diffMinutes = Math.floor((now - lastActiveDate) / (1000 * 60));
+        
+        if (diffMinutes < 1) {
+          setFormattedLastSeen('Just now');
+        } else if (diffMinutes < 60) {
+          setFormattedLastSeen(`${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`);
+        } else if (diffMinutes < 24 * 60) {
+          const hours = Math.floor(diffMinutes / 60);
+          setFormattedLastSeen(`${hours} hour${hours === 1 ? '' : 's'} ago`);
+        } else {
+          setFormattedLastSeen(format(lastActiveDate, 'MMM d, h:mm a'));
+        }
+      }
+    };
+    
+    // Update immediately and then every minute
+    updateLastSeen();
+    const interval = setInterval(updateLastSeen, 60000);
+    
+    return () => clearInterval(interval);
+  }, [partner, isOnline]);
 
   return (
     <div className="flex flex-col h-full">
@@ -136,7 +169,7 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
           <div>
             <h2 className="text-lg font-semibold">{partner?.display_name || 'Chat'}</h2>
             <p className="text-xs text-gray-400">
-              {isOnline ? 'Online now' : partner?.last_active ? `Last seen ${format(new Date(partner.last_active), 'MMM d, h:mm a')}` : 'Offline'}
+              {isOnline ? 'Online now' : formattedLastSeen ? `Last seen ${formattedLastSeen}` : 'Offline'}
               {conversation.gig_title && ` • ${conversation.gig_title}`}
             </p>
           </div>

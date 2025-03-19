@@ -8,7 +8,14 @@ let socket = null;
  * @returns {Object} The socket instance
  */
 export const initializeSocket = () => {
-  if (socket) return socket;
+  if (socket) {
+    // If socket exists but is disconnected, reconnect it
+    if (socket.disconnected) {
+      console.log('[Socket] Reconnecting existing socket');
+      socket.connect();
+    }
+    return socket;
+  }
   
   console.log('[Socket] Initializing connection to', API_URL);
   
@@ -19,12 +26,19 @@ export const initializeSocket = () => {
     reconnectionDelayMax: 5000,
     timeout: 20000,
     autoConnect: true,
-    transports: ['websocket', 'polling']
+    forceNew: false,
+    transports: ['websocket', 'polling'] // Try WebSocket first, fallback to polling
   });
   
   // Set up global connection event handlers
   socket.on('connect', () => {
     console.log('[Socket] Connected with ID:', socket.id);
+    
+    // Let the server know we're online whenever we connect/reconnect
+    const userId = localStorage.getItem('currentUserId');
+    if (userId) {
+      socket.emit('user-online', userId);
+    }
   });
   
   socket.on('connect_error', (error) => {
@@ -65,7 +79,7 @@ export const joinConversation = (conversationId, userId) => {
 };
 
 /**
- * Send a chat message
+ * Send a chat message with retry logic
  * @param {number} conversationId - The ID of the conversation
  * @param {number} senderId - The ID of the sender
  * @param {string} content - The message content
@@ -74,7 +88,29 @@ export const joinConversation = (conversationId, userId) => {
 export const sendMessage = (conversationId, senderId, content, callback) => {
   const s = getSocket();
   console.log(`[Socket] Sending message to conversation ${conversationId}`);
-  s.emit('send-message', { conversationId, senderId, content }, callback);
+  
+  // Store userId in localStorage for reconnection
+  localStorage.setItem('currentUserId', senderId);
+  
+  // Send with retry logic
+  const tryEmit = (retries = 0) => {
+    // Update the user's last active timestamp with each message
+    s.emit('user-active-update', senderId);
+    
+    s.emit('send-message', { conversationId, senderId, content }, (response) => {
+      if (response) {
+        if (callback) callback(response);
+      } else if (retries < 2) {
+        // Retry up to 2 times if no response
+        console.log(`[Socket] No response, retrying (${retries + 1}/2)...`);
+        setTimeout(() => tryEmit(retries + 1), 1000);
+      } else if (callback) {
+        callback({ error: 'No response from server after retries' });
+      }
+    });
+  };
+  
+  tryEmit();
 };
 
 /**

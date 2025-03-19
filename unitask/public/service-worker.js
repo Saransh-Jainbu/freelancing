@@ -29,19 +29,19 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   console.log('[ServiceWorker] Activate');
   
-  // Take control of all clients immediately
-  event.waitUntil(self.clients.claim());
-  
-  // Clean up old caches
+  // Take control of all clients immediately for instant updates
   event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(keyList.map((key) => {
-        if (key !== CACHE_NAME) {
-          console.log('[ServiceWorker] Removing old cache', key);
-          return caches.delete(key);
-        }
-      }));
-    })
+    Promise.all([
+      self.clients.claim(), // This ensures the service worker takes control right away
+      caches.keys().then((keyList) => {
+        return Promise.all(keyList.map((key) => {
+          if (key !== CACHE_NAME) {
+            console.log('[ServiceWorker] Removing old cache', key);
+            return caches.delete(key);
+          }
+        }));
+      })
+    ])
   );
 });
 
@@ -140,5 +140,10 @@ self.addEventListener('message', (event) => {
   
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
+  } else if (event.data.type === 'GET_VERSION') {
+    // Reply with current service worker version to help debugging
+    event.ports[0].postMessage({
+      version: CACHE_NAME
+    });
   }
 });

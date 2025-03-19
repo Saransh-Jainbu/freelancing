@@ -186,15 +186,27 @@ const ChatPage = () => {
       if (selectedConversation && selectedConversation.id === message.conversation_id) {
         console.log('[Chat] Adding message to current conversation');
         
-        // Update messages with function form to ensure latest state
+        // Force update with function form to ensure latest state
         setMessages(prevMessages => {
           // Check if message already exists
           const exists = prevMessages.some(msg => msg.id === message.id);
           if (exists) {
+            console.log('[Chat] Message already exists, not adding duplicate');
             return prevMessages;
           }
+          console.log('[Chat] Adding new message to state');
           return [...prevMessages, message];
         });
+        
+        // Force scroll to bottom when message is added
+        setTimeout(() => {
+          const messagesEnd = document.getElementById('messages-end-ref');
+          if (messagesEnd) {
+            messagesEnd.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+      } else {
+        console.log('[Chat] Message is for a different conversation:', message.conversation_id);
       }
       
       // Update conversations list with latest message info
@@ -205,6 +217,7 @@ const ChatPage = () => {
         );
         
         if (existingConvIndex === -1) {
+          console.log('[Chat] Conversation not in list, fetching fresh data');
           // Conversation not in our list, need to fetch fresh data
           getUserConversations(currentUser.id).then(setConversations);
           return prevConversations;
@@ -219,6 +232,20 @@ const ChatPage = () => {
         // Update with new message info
         conversation.last_message = message.content;
         conversation.updated_at = message.created_at || new Date().toISOString();
+        
+        // Update the participants with latest online status
+        if (message.sender && conversation.participants) {
+          conversation.participants = conversation.participants.map(participant => {
+            // If this participant is the message sender, update their last_active time
+            if (participant.id === message.sender_id) {
+              return {
+                ...participant,
+                last_active: new Date().toISOString()
+              };
+            }
+            return participant;
+          });
+        }
         
         // Update unread count if this is not from current user
         if (message.sender_id !== currentUser.id) {
@@ -347,7 +374,7 @@ const ChatPage = () => {
       content: content.trim()
     };
     
-    // Optimistically add the message to the UI first for better UX
+    // Create optimistic message for instant UI update
     const optimisticMessage = {
       id: `temp-${Date.now()}`,
       conversation_id: selectedConversation.id,
@@ -358,15 +385,33 @@ const ChatPage = () => {
       sender: {
         id: currentUser.id,
         display_name: currentUser.display_name,
-        avatar_url: currentUser.avatar_url
+        avatar_url: currentUser.avatar_url,
+        last_active: new Date().toISOString() // Add fresh timestamp
       },
       _isOptimistic: true // Mark as optimistic to identify later
     };
     
-    // Add to messages
+    // Add to messages immediately for better UX
     setMessages(prevMessages => [...prevMessages, optimisticMessage]);
     
-    // Send via socket with acknowledgment
+    // Update selected conversation with the new message too
+    if (selectedConversation) {
+      setSelectedConversation(prev => ({
+        ...prev,
+        last_message: content.trim(),
+        updated_at: new Date().toISOString()
+      }));
+    }
+    
+    // Force scroll to bottom
+    setTimeout(() => {
+      const messagesEnd = document.getElementById('messages-end-ref');
+      if (messagesEnd) {
+        messagesEnd.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 50);
+    
+    // Send via socket
     socket.emit('send-message', payload, (response) => {
       if (response && response.error) {
         console.error('[Chat] Error sending message (server response):', response.error);
@@ -375,23 +420,23 @@ const ChatPage = () => {
         setMessages(prevMessages => 
           prevMessages.filter(msg => msg.id !== optimisticMessage.id)
         );
-        
-        // Show error to user
-        // TODO: Add error toast or message
       }
       else if (response && response.success) {
         console.log('[Chat] Message sent successfully (acknowledged by server)');
         
-        // Replace optimistic message with confirmed one if needed
-        if (response.messageId) {
-          setMessages(prevMessages => 
-            prevMessages.map(msg => 
-              msg.id === optimisticMessage.id 
-                ? { ...msg, id: response.messageId, _isOptimistic: false } 
-                : msg
-            )
-          );
-        }
+        // Update conversations to reflect new message
+        setConversations(prevConvs => {
+          return prevConvs.map(conv => {
+            if (conv.id === selectedConversation.id) {
+              return {
+                ...conv,
+                last_message: content.trim(),
+                updated_at: new Date().toISOString()
+              };
+            }
+            return conv;
+          }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        });
       }
     });
   };
