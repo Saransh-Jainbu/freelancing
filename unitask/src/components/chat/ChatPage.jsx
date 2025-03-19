@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContextValue';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getUserConversations, getConversationMessages, createConversation } from '../../api/chat';
@@ -8,7 +8,7 @@ import ChatWindow from './ChatWindow';
 import { API_URL } from '../../constants';
 import NewChatModal from './NewChatModal';
 import { AlertCircle, Loader } from 'lucide-react';
-import { showChatNotification, getNotificationPermission, requestNotificationPermission } from '../../services/notificationService';
+import { showChatNotification, getNotificationPermission, requestNotificationPermission, registerServiceWorker } from '../../services/notificationService';
 
 const ChatPage = () => {
   const { currentUser } = useAuth();
@@ -23,6 +23,7 @@ const ChatPage = () => {
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const messagesEndRef = useRef(null);
   
   // Request notification permission
   useEffect(() => {
@@ -45,7 +46,7 @@ const ChatPage = () => {
     }
   }, []);
 
-  // Fix socket initialization with more robust connection handling
+  // Improve socket initialization
   useEffect(() => {
     if (!currentUser) return;
     
@@ -63,8 +64,8 @@ const ChatPage = () => {
       transports: ['websocket', 'polling'] // Try WebSocket first, fallback to polling
     };
     
+    // Use the correct API_URL
     const socketInstance = io(API_URL, socketOptions);
-    setSocket(socketInstance);
     
     // Debug socket connection events
     socketInstance.on('connect', () => {
@@ -88,17 +89,20 @@ const ChatPage = () => {
       }
     });
     
-    socketInstance.on('disconnect', (reason) => {
-      console.log('[Chat] Socket disconnected, reason:', reason);
-    });
+    setSocket(socketInstance);
     
-    // Cleanup function to disconnect socket when component unmounts
+    // Register service worker for notifications
+    registerServiceWorker().catch(err => 
+      console.error('[Chat] Error registering service worker:', err)
+    );
+    
+    // Cleanup function
     return () => {
       console.log('[Chat] Cleaning up socket connection');
       socketInstance.disconnect();
     };
-  }, [currentUser]); // Only recreate socket when user changes
-  
+  }, [currentUser]);
+
   // Load conversations
   useEffect(() => {
     const loadConversations = async () => {
@@ -164,7 +168,7 @@ const ChatPage = () => {
     loadMessages();
   }, [currentUser, selectedConversation, socket]);
   
-  // Enhanced message handling with better logging
+  // Enhanced message handling
   useEffect(() => {
     if (!socket || !currentUser) return;
     
@@ -173,7 +177,6 @@ const ChatPage = () => {
     const handleNewMessage = (message) => {
       console.log('[Chat] Received new-message event with data:', message);
       
-      // Test if message is valid
       if (!message || !message.conversation_id) {
         console.error('[Chat] Invalid message received:', message);
         return;
@@ -183,89 +186,91 @@ const ChatPage = () => {
       if (selectedConversation && selectedConversation.id === message.conversation_id) {
         console.log('[Chat] Adding message to current conversation');
         
-        // Update with function form to ensure we're using latest state
+        // Update messages with function form to ensure latest state
         setMessages(prevMessages => {
-          // Check if message already exists in the list
-          const messageExists = prevMessages.some(msg => msg.id === message.id);
-          if (messageExists) {
-            console.log('[Chat] Message already exists in state, not adding duplicate');
+          // Check if message already exists
+          const exists = prevMessages.some(msg => msg.id === message.id);
+          if (exists) {
             return prevMessages;
           }
-          
-          const updatedMessages = [...prevMessages, message];
-          console.log('[Chat] Updated messages array length:', updatedMessages.length);
-          return updatedMessages;
+          return [...prevMessages, message];
         });
-        
-        // Force scroll to bottom
-        setTimeout(() => {
-          const messagesEnd = document.getElementById('messages-end-ref');
-          messagesEnd?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      } else {
-        console.log('[Chat] Message is for a different conversation than the selected one');
       }
       
-      // Always update conversations list with latest message info
+      // Update conversations list with latest message info
       setConversations(prevConversations => {
         // Check if conversation exists in the list
-        const conversationExists = prevConversations.some(conv => conv.id === message.conversation_id);
+        const existingConvIndex = prevConversations.findIndex(
+          conv => conv.id === message.conversation_id
+        );
         
-        if (!conversationExists) {
-          console.log('[Chat] Conversation not in list, fetching fresh conversations');
-          // If conversation doesn't exist, fetch updated list
-          getUserConversations(currentUser.id)
-            .then(updatedConversations => {
-              setConversations(updatedConversations);
-            })
-            .catch(error => {
-              console.error('[Chat] Error fetching updated conversations:', error);
-            });
+        if (existingConvIndex === -1) {
+          // Conversation not in our list, need to fetch fresh data
+          getUserConversations(currentUser.id).then(setConversations);
           return prevConversations;
         }
         
-        // Update existing conversation
-        const updatedConversations = prevConversations.map(conv => {
-          if (conv.id === message.conversation_id) {
-            // Handle notifications if needed
-            if (message.sender_id !== currentUser.id) {
-              // Show notification if this isn't the current conversation or window isn't focused
-              if (!selectedConversation || selectedConversation.id !== message.conversation_id || !document.hasFocus()) {
-                // Ensure sender info exists
-                if (!message.sender) {
-                  message.sender = { display_name: 'Someone', id: message.sender_id };
-                }
-                
-                // Show notification
-                showChatNotification(message.content, message.sender, message.conversation_id);
-              }
-            }
-            
-            // Return updated conversation
-            return {
-              ...conv,
-              last_message: message.content,
-              updated_at: new Date().toISOString(),
-              unread_count: message.sender_id !== currentUser.id && 
-                          (!selectedConversation || selectedConversation.id !== message.conversation_id)
-                          ? (conv.unread_count || 0) + 1 
-                          : conv.unread_count || 0
-            };
-          }
-          return conv;
-        });
+        // Make a copy of conversations to modify
+        const updatedConversations = [...prevConversations];
         
-        // Sort by most recent update
-        return updatedConversations.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        // Get the conversation to update
+        const conversation = { ...updatedConversations[existingConvIndex] };
+        
+        // Update with new message info
+        conversation.last_message = message.content;
+        conversation.updated_at = message.created_at || new Date().toISOString();
+        
+        // Update unread count if this is not from current user
+        if (message.sender_id !== currentUser.id) {
+          // Only increment unread count if this isn't the selected conversation
+          if (!selectedConversation || selectedConversation.id !== message.conversation_id) {
+            conversation.unread_count = (conversation.unread_count || 0) + 1;
+            
+            // Show notification if this isn't the active conversation or window is not focused
+            if (!document.hasFocus()) {
+              // Make sure we have sender data
+              if (!message.sender) {
+                message.sender = {
+                  display_name: 'New message',
+                  id: message.sender_id
+                };
+              }
+              
+              // Show notification
+              showChatNotification(message.content, message.sender, message.conversation_id);
+            }
+          }
+        }
+        
+        // Replace the old conversation with updated one
+        updatedConversations[existingConvIndex] = conversation;
+        
+        // Sort conversations by most recent message
+        return updatedConversations.sort(
+          (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+        );
       });
     };
     
-    // Register event handler
+    // Register event listener for new messages
     socket.on('new-message', handleNewMessage);
     
+    // Handle chat notifications separately (for when a user is on a different page)
+    socket.on('chat-notification', (message) => {
+      console.log('[Chat] Received chat notification:', message);
+      
+      if (message.sender) {
+        showChatNotification(
+          message.content,
+          message.sender,
+          message.conversation_id
+        );
+      }
+    });
+    
     return () => {
-      console.log('[Chat] Removing new-message event listener');
       socket.off('new-message', handleNewMessage);
+      socket.off('chat-notification');
     };
   }, [socket, currentUser, selectedConversation]);
   
@@ -328,7 +333,7 @@ const ChatPage = () => {
     });
   };
   
-  // Handle sending a message with better error handling
+  // Improved message sending
   const handleSendMessage = (content) => {
     if (!socket || !selectedConversation || !content.trim()) {
       console.error('[Chat] Cannot send message - missing socket, conversation, or content');
@@ -342,11 +347,51 @@ const ChatPage = () => {
       content: content.trim()
     };
     
-    socket.emit('send-message', payload, (acknowledgement) => {
-      if (acknowledgement && acknowledgement.error) {
-        console.error('[Chat] Error sending message (from server):', acknowledgement.error);
-      } else if (acknowledgement && acknowledgement.success) {
-        console.log('[Chat] Message sent successfully (server acknowledged)');
+    // Optimistically add the message to the UI first for better UX
+    const optimisticMessage = {
+      id: `temp-${Date.now()}`,
+      conversation_id: selectedConversation.id,
+      sender_id: currentUser.id,
+      content: content.trim(),
+      created_at: new Date().toISOString(),
+      is_read: false,
+      sender: {
+        id: currentUser.id,
+        display_name: currentUser.display_name,
+        avatar_url: currentUser.avatar_url
+      },
+      _isOptimistic: true // Mark as optimistic to identify later
+    };
+    
+    // Add to messages
+    setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+    
+    // Send via socket with acknowledgment
+    socket.emit('send-message', payload, (response) => {
+      if (response && response.error) {
+        console.error('[Chat] Error sending message (server response):', response.error);
+        
+        // Remove the optimistic message on error
+        setMessages(prevMessages => 
+          prevMessages.filter(msg => msg.id !== optimisticMessage.id)
+        );
+        
+        // Show error to user
+        // TODO: Add error toast or message
+      }
+      else if (response && response.success) {
+        console.log('[Chat] Message sent successfully (acknowledged by server)');
+        
+        // Replace optimistic message with confirmed one if needed
+        if (response.messageId) {
+          setMessages(prevMessages => 
+            prevMessages.map(msg => 
+              msg.id === optimisticMessage.id 
+                ? { ...msg, id: response.messageId, _isOptimistic: false } 
+                : msg
+            )
+          );
+        }
       }
     });
   };

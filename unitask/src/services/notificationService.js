@@ -10,8 +10,17 @@ const registerServiceWorker = async () => {
   if (!canUseNotifications()) return false;
   
   try {
-    const registration = await navigator.serviceWorker.register('/service-worker.js');
+    // Force update the service worker on each registration attempt
+    const registration = await navigator.serviceWorker.register('/service-worker.js', {
+      updateViaCache: 'none', // Don't use cached version
+      scope: '/'
+    });
     console.log('ServiceWorker registration successful with scope:', registration.scope);
+    
+    // Wait for the service worker to be ready before returning
+    await navigator.serviceWorker.ready;
+    console.log('ServiceWorker is now ready and activated');
+    
     return registration;
   } catch (error) {
     console.error('ServiceWorker registration failed:', error);
@@ -54,7 +63,9 @@ const requestNotificationPermission = async () => {
   if (!canUseNotifications()) return false;
   
   try {
+    console.log('Requesting notification permission...');
     const permission = await Notification.requestPermission();
+    console.log('Notification permission result:', permission);
     return permission === 'granted';
   } catch (error) {
     console.error('Error requesting notification permission:', error);
@@ -72,12 +83,37 @@ const getNotificationPermission = () => {
 const showNotification = async (title, options = {}) => {
   if (!canUseNotifications() || Notification.permission !== 'granted') {
     console.log('Cannot show notification: permissions not granted or notifications not supported');
+    // Fall back to in-app notification
+    showInAppNotification(title, options.body || '');
     return false;
   }
   
   try {
+    // First try using the Notification API directly (works better in some browsers)
+    try {
+      const notification = new Notification(title, {
+        icon: options.icon || '/favicon.ico',
+        badge: options.badge || '/notification-badge.png',
+        ...options
+      });
+      
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+        if (options.data?.url) {
+          window.location.href = options.data.url;
+        }
+      };
+      
+      console.log('Direct notification shown successfully');
+      return true;
+    } catch (error) {
+      console.log('Direct notification failed, trying service worker:', error);
+    }
+    
+    // Fall back to service worker notification
     const registration = await navigator.serviceWorker.ready;
-    console.log('Showing notification:', title, options);
+    console.log('Showing notification via service worker:', title, options);
     await registration.showNotification(title, {
       icon: '/favicon.ico',
       badge: '/notification-badge.png',
@@ -88,6 +124,8 @@ const showNotification = async (title, options = {}) => {
     return true;
   } catch (error) {
     console.error('Error showing notification:', error);
+    // Fall back to in-app notification
+    showInAppNotification(title, options.body || '');
     return false;
   }
 };
@@ -128,7 +166,7 @@ const showChatNotification = async (message, sender, conversationId) => {
   // If message is too long, truncate it for the notification
   const truncatedMessage = message.length > 100 ? message.substring(0, 97) + '...' : message;
   
-  const title = `New message from ${sender.display_name}`;
+  const title = `New message from ${sender.display_name || 'Someone'}`;
   const options = {
     body: truncatedMessage, // Use the actual message as the notification body
     icon: sender.avatar_url || '/favicon.ico',
@@ -150,37 +188,46 @@ const showChatNotification = async (message, sender, conversationId) => {
   
   let notificationShown = false;
   
-  // First try using the Notification API directly (works better in some browsers)
-  if (Notification.permission === 'granted') {
-    try {
-      const notification = new Notification(title, {
-        ...options,
-        icon: options.icon || '/favicon.ico'
-      });
-      
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-        window.location.href = options.data.url;
-      };
-      
-      notificationShown = true;
-      console.log('Direct notification shown successfully');
-    } catch (error) {
-      console.error('Direct notification failed:', error);
+  // Try showing notification, with multiple fallback methods
+  try {
+    // First try using the Notification API directly
+    if (Notification.permission === 'granted') {
+      try {
+        const notification = new Notification(title, {
+          ...options,
+          icon: options.icon || '/favicon.ico'
+        });
+        
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+          window.location.href = options.data.url;
+        };
+        
+        notificationShown = true;
+        console.log('Direct notification shown successfully');
+      } catch (error) {
+        console.error('Direct notification failed:', error);
+      }
     }
-  }
-  
-  // If direct notification fails, try service worker notification
-  if (!notificationShown) {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification(title, options);
-      console.log('Service worker notification shown successfully');
-      notificationShown = true;
-    } catch (error) {
-      console.error('Service worker notification failed:', error);
+    
+    // If direct notification fails, try service worker notification
+    if (!notificationShown) {
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            await registration.showNotification(title, options);
+            console.log('Service worker notification shown successfully');
+            notificationShown = true;
+          }
+        } catch (error) {
+          console.error('Service worker notification failed:', error);
+        }
+      }
     }
+  } catch (error) {
+    console.error('All notification methods failed:', error);
   }
   
   // If both methods fail, show in-app notification

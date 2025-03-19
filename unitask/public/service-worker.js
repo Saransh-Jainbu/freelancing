@@ -1,11 +1,15 @@
 // UniTask Service Worker for background notifications
 
-const CACHE_NAME = 'unitask-cache-v1';
+const CACHE_NAME = 'unitask-cache-v2'; // Increment cache version
 const OFFLINE_URL = '/offline.html';
 
 // Install event - cache essential files
 self.addEventListener('install', (event) => {
   console.log('[ServiceWorker] Install');
+  
+  // Force activation immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[ServiceWorker] Caching app shell');
@@ -21,9 +25,14 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and take control immediately
 self.addEventListener('activate', (event) => {
   console.log('[ServiceWorker] Activate');
+  
+  // Take control of all clients immediately
+  event.waitUntil(self.clients.claim());
+  
+  // Clean up old caches
   event.waitUntil(
     caches.keys().then((keyList) => {
       return Promise.all(keyList.map((key) => {
@@ -34,11 +43,15 @@ self.addEventListener('activate', (event) => {
       }));
     })
   );
-  return self.clients.claim();
 });
 
 // Fetch event - network first, then cache
 self.addEventListener('fetch', (event) => {
+  // Skip cross-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .catch(() => {
@@ -119,4 +132,13 @@ self.addEventListener('notificationclick', (event) => {
         }
       })
   );
+});
+
+// Listen for message from client
+self.addEventListener('message', (event) => {
+  console.log('[ServiceWorker] Received message:', event.data);
+  
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
+  }
 });
