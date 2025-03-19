@@ -45,24 +45,30 @@ const ChatPage = () => {
     }
   }, []);
 
-  // Initialize socket connection
+  // Fix socket initialization with more robust connection handling
   useEffect(() => {
     if (!currentUser) return;
     
-    // Create socket with explicit connect (helps with reconnection issues)
-    const socketInstance = io(API_URL, {
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      autoConnect: true,
-      forceNew: true
-    });
+    console.log('[Chat] Initializing socket connection...');
     
+    // Create socket with explicit connect and reconnection options
+    const socketOptions = {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      autoConnect: true,
+      forceNew: true, // Force a new connection every time
+      transports: ['websocket', 'polling'] // Try WebSocket first, fallback to polling
+    };
+    
+    const socketInstance = io(API_URL, socketOptions);
     setSocket(socketInstance);
     
-    // Debug socket connection issues
+    // Debug socket connection events
     socketInstance.on('connect', () => {
-      console.log('[Chat] Socket connected:', socketInstance.id);
+      console.log('[Chat] Socket connected successfully:', socketInstance.id);
       socketInstance.emit('user-online', currentUser.id);
     });
     
@@ -70,16 +76,28 @@ const ChatPage = () => {
       console.error('[Chat] Socket connection error:', error);
     });
     
-    socketInstance.on('disconnect', (reason) => {
-      console.log('[Chat] Socket disconnected:', reason);
-      // Socket.io will automatically try to reconnect
+    socketInstance.on('reconnect', (attemptNumber) => {
+      console.log(`[Chat] Socket reconnected after ${attemptNumber} attempts`);
+      // Rejoin conversation room if applicable
+      if (selectedConversation) {
+        console.log(`[Chat] Rejoining conversation ${selectedConversation.id} after reconnection`);
+        socketInstance.emit('join-conversation', {
+          conversationId: selectedConversation.id,
+          userId: currentUser.id
+        });
+      }
     });
     
+    socketInstance.on('disconnect', (reason) => {
+      console.log('[Chat] Socket disconnected, reason:', reason);
+    });
+    
+    // Cleanup function to disconnect socket when component unmounts
     return () => {
       console.log('[Chat] Cleaning up socket connection');
       socketInstance.disconnect();
     };
-  }, [currentUser]);
+  }, [currentUser]); // Only recreate socket when user changes
   
   // Load conversations
   useEffect(() => {
@@ -146,93 +164,108 @@ const ChatPage = () => {
     loadMessages();
   }, [currentUser, selectedConversation, socket]);
   
-  // Listen for new messages with improved error handling
+  // Enhanced message handling with better logging
   useEffect(() => {
     if (!socket || !currentUser) return;
     
+    console.log('[Chat] Setting up new-message event listener');
+    
     const handleNewMessage = (message) => {
-      console.log('[Chat] Received new message:', message);
+      console.log('[Chat] Received new-message event with data:', message);
       
-      try {
-        // Add message to current messages if for selected conversation
-        if (selectedConversation && selectedConversation.id === message.conversation_id) {
-          setMessages(prevMessages => [...prevMessages, message]);
-          
-          // Force scroll to bottom when a new message comes in
-          setTimeout(() => {
-            const messagesEnd = document.getElementById('messages-end-ref');
-            messagesEnd?.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-        }
+      // Test if message is valid
+      if (!message || !message.conversation_id) {
+        console.error('[Chat] Invalid message received:', message);
+        return;
+      }
+      
+      // Add message to current messages if for selected conversation
+      if (selectedConversation && selectedConversation.id === message.conversation_id) {
+        console.log('[Chat] Adding message to current conversation');
         
-        // Always show notification for messages from others, regardless of the current view
-        if (message.sender_id !== currentUser.id) {
-          console.log('[Chat] Showing notification for incoming message');
-          
-          // Ensure sender object has display_name
-          if (!message.sender) {
-            message.sender = {
-              display_name: 'Someone',
-              id: message.sender_id
-            };
+        // Update with function form to ensure we're using latest state
+        setMessages(prevMessages => {
+          // Check if message already exists in the list
+          const messageExists = prevMessages.some(msg => msg.id === message.id);
+          if (messageExists) {
+            console.log('[Chat] Message already exists in state, not adding duplicate');
+            return prevMessages;
           }
           
-          // Send a native notification for all incoming messages
-          showChatNotification(
-            message.content,
-            message.sender,
-            message.conversation_id
-          );
-          
-          // Also play a sound to alert the user
-          playNotificationSound();
+          const updatedMessages = [...prevMessages, message];
+          console.log('[Chat] Updated messages array length:', updatedMessages.length);
+          return updatedMessages;
+        });
+        
+        // Force scroll to bottom
+        setTimeout(() => {
+          const messagesEnd = document.getElementById('messages-end-ref');
+          messagesEnd?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } else {
+        console.log('[Chat] Message is for a different conversation than the selected one');
+      }
+      
+      // Always update conversations list with latest message info
+      setConversations(prevConversations => {
+        // Check if conversation exists in the list
+        const conversationExists = prevConversations.some(conv => conv.id === message.conversation_id);
+        
+        if (!conversationExists) {
+          console.log('[Chat] Conversation not in list, fetching fresh conversations');
+          // If conversation doesn't exist, fetch updated list
+          getUserConversations(currentUser.id)
+            .then(updatedConversations => {
+              setConversations(updatedConversations);
+            })
+            .catch(error => {
+              console.error('[Chat] Error fetching updated conversations:', error);
+            });
+          return prevConversations;
         }
         
-        // Update conversations list with new message
-        setConversations(prevConversations => {
-          const updatedConversations = prevConversations.map(conv => {
-            if (conv.id === message.conversation_id) {
-              return {
-                ...conv,
-                last_message: message.content,
-                updated_at: new Date().toISOString(),
-                unread_count: message.sender_id !== currentUser.id && 
-                            (!selectedConversation || selectedConversation.id !== message.conversation_id)
-                            ? (conv.unread_count || 0) + 1 
-                            : conv.unread_count || 0
-              };
+        // Update existing conversation
+        const updatedConversations = prevConversations.map(conv => {
+          if (conv.id === message.conversation_id) {
+            // Handle notifications if needed
+            if (message.sender_id !== currentUser.id) {
+              // Show notification if this isn't the current conversation or window isn't focused
+              if (!selectedConversation || selectedConversation.id !== message.conversation_id || !document.hasFocus()) {
+                // Ensure sender info exists
+                if (!message.sender) {
+                  message.sender = { display_name: 'Someone', id: message.sender_id };
+                }
+                
+                // Show notification
+                showChatNotification(message.content, message.sender, message.conversation_id);
+              }
             }
-            return conv;
-          });
-          
-          // Sort by most recent update
-          return updatedConversations.sort((a, b) => 
-            new Date(b.updated_at) - new Date(a.updated_at)
-          );
+            
+            // Return updated conversation
+            return {
+              ...conv,
+              last_message: message.content,
+              updated_at: new Date().toISOString(),
+              unread_count: message.sender_id !== currentUser.id && 
+                          (!selectedConversation || selectedConversation.id !== message.conversation_id)
+                          ? (conv.unread_count || 0) + 1 
+                          : conv.unread_count || 0
+            };
+          }
+          return conv;
         });
-      } catch (err) {
-        console.error('[Chat] Error handling new message:', err);
-      }
+        
+        // Sort by most recent update
+        return updatedConversations.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+      });
     };
     
-    // Register event handler and ensure cleanup
+    // Register event handler
     socket.on('new-message', handleNewMessage);
     
-    // Add handler for socket reconnection
-    socket.on('reconnect', () => {
-      console.log('[Chat] Socket reconnected, rejoining rooms');
-      // Rejoin conversation room if needed
-      if (selectedConversation) {
-        socket.emit('join-conversation', {
-          conversationId: selectedConversation.id,
-          userId: currentUser.id
-        });
-      }
-    });
-    
     return () => {
+      console.log('[Chat] Removing new-message event listener');
       socket.off('new-message', handleNewMessage);
-      socket.off('reconnect');
     };
   }, [socket, currentUser, selectedConversation]);
   
@@ -295,14 +328,26 @@ const ChatPage = () => {
     });
   };
   
-  // Handle sending a message
+  // Handle sending a message with better error handling
   const handleSendMessage = (content) => {
-    if (!socket || !selectedConversation || !content.trim()) return;
+    if (!socket || !selectedConversation || !content.trim()) {
+      console.error('[Chat] Cannot send message - missing socket, conversation, or content');
+      return;
+    }
     
-    socket.emit('send-message', {
+    console.log(`[Chat] Sending message to conversation ${selectedConversation.id}`);
+    const payload = {
       conversationId: selectedConversation.id,
       senderId: currentUser.id,
       content: content.trim()
+    };
+    
+    socket.emit('send-message', payload, (acknowledgement) => {
+      if (acknowledgement && acknowledgement.error) {
+        console.error('[Chat] Error sending message (from server):', acknowledgement.error);
+      } else if (acknowledgement && acknowledgement.success) {
+        console.log('[Chat] Message sent successfully (server acknowledged)');
+      }
     });
   };
 

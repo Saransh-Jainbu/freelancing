@@ -346,12 +346,13 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Handle sending a message with better error handling and notification
-  socket.on('send-message', async (messageData) => {
+  // Handle sending a message with acknowledgement
+  socket.on('send-message', async (messageData, callback) => {
     try {
       const { conversationId, senderId, content } = messageData;
       if (!conversationId || !senderId || !content) {
         console.error('Invalid message data:', messageData);
+        if (callback) callback({ error: 'Invalid message data' });
         return;
       }
       
@@ -366,10 +367,6 @@ io.on('connection', (socket) => {
       const clients = io.sockets.adapter.rooms.get(roomName);
       console.log(`Room ${roomName} has ${clients ? clients.size : 0} active clients`);
       
-      // Emit message to conversation room
-      io.to(roomName).emit('new-message', savedMessage);
-      console.log(`Message emitted to room ${roomName}`);
-      
       // Get sender information to include with the message
       const senderInfo = await query(
         'SELECT id, display_name, avatar_url FROM users WHERE id = $1',
@@ -380,8 +377,15 @@ io.on('connection', (socket) => {
         savedMessage.sender = senderInfo.rows[0];
       }
       
+      // Emit message to conversation room
+      io.to(roomName).emit('new-message', savedMessage);
+      console.log(`Message emitted to room ${roomName}`);
+      
       // Update conversation with last message
       await updateConversationLastMessage(conversationId, content, senderId);
+      
+      // Send acknowledgement back to client
+      if (callback) callback({ success: true, messageId: savedMessage.id });
       
       // Check if other participants are not in the conversation room
       // to send them push notifications
@@ -432,6 +436,7 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      if (callback) callback({ error: 'Failed to process message' });
     }
   });
   
