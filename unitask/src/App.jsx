@@ -18,6 +18,7 @@ import GigDetails from "./components/gigs/GigDetails";
 import ChatNotificationService from './components/chat/ChatNotificationService';
 import EnablePushNotifications from './components/chat/EnablePushNotifications';
 import MobileNotificationBanner from './components/chat/MobileNotificationBanner';
+import ChatRealTimeProvider from './components/chat/ChatRealTimeService';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -131,7 +132,9 @@ const App = () => {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <ChatRealTimeProvider>
+          <AppRoutes />
+        </ChatRealTimeProvider>
       </AuthProvider>
     </Router>
   );
