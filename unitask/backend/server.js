@@ -346,37 +346,86 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Handle sending a message
+  // Handle sending a message with better error handling and notification
   socket.on('send-message', async (messageData) => {
     try {
       const { conversationId, senderId, content } = messageData;
       if (!conversationId || !senderId || !content) {
+        console.error('Invalid message data:', messageData);
         return;
       }
       
       // Save message to database
       const savedMessage = await saveMessage(conversationId, senderId, content);
+      console.log('Message saved:', savedMessage.id);
+      
+      // Get the room name for this conversation
+      const roomName = `conversation-${conversationId}`;
+      
+      // Check how many clients are in this room (for debugging)
+      const clients = io.sockets.adapter.rooms.get(roomName);
+      console.log(`Room ${roomName} has ${clients ? clients.size : 0} active clients`);
       
       // Emit message to conversation room
-      io.to(`conversation-${conversationId}`).emit('new-message', savedMessage);
+      io.to(roomName).emit('new-message', savedMessage);
+      console.log(`Message emitted to room ${roomName}`);
+      
+      // Get sender information to include with the message
+      const senderInfo = await query(
+        'SELECT id, display_name, avatar_url FROM users WHERE id = $1',
+        [senderId]
+      );
+      
+      if (senderInfo.rows.length > 0) {
+        savedMessage.sender = senderInfo.rows[0];
+      }
       
       // Update conversation with last message
       await updateConversationLastMessage(conversationId, content, senderId);
       
-      // Check if other participants are not in the conversation
+      // Check if other participants are not in the conversation room
+      // to send them push notifications
       const participants = await getConversationParticipants(conversationId);
       for (const participant of participants) {
         if (participant.user_id != senderId) {
           const participantId = participant.user_id.toString();
-          const isOnline = onlineUsers.has(participantId);
-          const userSocketId = onlineUsers.get(participantId);
           
-          // If participant is not in the conversation room, send a push notification
-          if (isOnline) {
+          // Check if the participant has an active socket connection
+          if (onlineUsers.has(participantId)) {
+            const userSocketId = onlineUsers.get(participantId);
             const socket = io.sockets.sockets.get(userSocketId);
-            if (socket && !socket.rooms.has(`conversation-${conversationId}`)) {
-              // Send notification to this specific socket
+            
+            // If they have a socket but aren't in the conversation room, 
+            // send them a notification through the socket
+            if (socket && !socket.rooms.has(roomName)) {
+              console.log(`Sending notification to user ${participantId}`);
               socket.emit('chat-notification', savedMessage);
+            }
+            
+            // Also try to send push notification if we have web push configured
+            if (typeof sendPushNotification === 'function') {
+              try {
+                await sendPushNotification(participantId, {
+                  title: `New message from ${savedMessage.sender?.display_name || 'Someone'}`,
+                  body: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+                  url: `/chat/${conversationId}`
+                });
+              } catch (err) {
+                console.error(`Error sending push notification to user ${participantId}:`, err);
+              }
+            }
+          } else {
+            // User is offline, send push notification if we have web push configured
+            if (typeof sendPushNotification === 'function') {
+              try {
+                await sendPushNotification(participantId, {
+                  title: `New message from ${savedMessage.sender?.display_name || 'Someone'}`,
+                  body: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+                  url: `/chat/${conversationId}`
+                });
+              } catch (err) {
+                console.error(`Error sending push notification to offline user ${participantId}:`, err);
+              }
             }
           }
         }
@@ -1761,3 +1810,13 @@ async function createConversation(req, res) {
 
 // Replace your existing conversation creation route with this updated version
 app.post('/api/conversations', createConversation);
+
+// Helper function for sending push notifications (if web-push is configured)
+let sendPushNotification = null;
+try {
+  const pushService = require('./services/pushNotifications');
+  sendPushNotification = pushService.sendNotification;
+  console.log('Push notification service available');
+} catch (err) {
+  console.log('Push notification service not available');
+}

@@ -92,18 +92,36 @@ const showNotification = async (title, options = {}) => {
   }
 };
 
-// Play notification sound
+// Play notification sound with vibration for mobile devices
 const playNotificationSound = () => {
-  const audio = new Audio('/notification-sound.mp3');
-  audio.volume = 0.5; // 50% volume
-  
-  // Always play sound for message notifications
-  audio.play().catch(err => {
-    console.warn('Could not play notification sound:', err);
-  });
+  try {
+    const audio = new Audio('/notification-sound.mp3');
+    audio.volume = 0.5; // 50% volume
+    
+    // Play sound with user interaction requirement workaround
+    const playPromise = audio.play();
+    
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn('Could not play notification sound (probably needs user interaction):', err);
+        // We'll try again on next user interaction
+        document.addEventListener('click', function playOnInteraction() {
+          audio.play().catch(e => console.warn('Still could not play sound:', e));
+          document.removeEventListener('click', playOnInteraction);
+        }, { once: true });
+      });
+    }
+    
+    // Vibrate for mobile devices if supported
+    if ('vibrate' in navigator) {
+      navigator.vibrate([100, 50, 100]);
+    }
+  } catch (error) {
+    console.warn('Error creating audio element:', error);
+  }
 };
 
-// Show chat message notification
+// Show chat message notification with enhanced mobile support
 const showChatNotification = async (message, sender, conversationId) => {
   console.log('Attempting to show chat notification:', {message, sender, conversationId});
   
@@ -121,20 +139,19 @@ const showChatNotification = async (message, sender, conversationId) => {
       senderId: sender.id,
       message: message
     },
-    requireInteraction: true, // Make notification stay until user interacts
+    requireInteraction: false, // Less annoying on mobile
     renotify: true, // Notify each time even if from same conversation
-    silent: false // Allow sound
+    silent: false, // Allow sound
+    vibrate: [100, 50, 100] // Vibration pattern for mobile
   };
   
-  // Play sound for new message notifications
+  // Always play sound and vibrate for new message notifications
   playNotificationSound();
   
-  // For testing - try both methods
-  // 1. Use the service worker
-  const swResult = await showNotification(title, options);
+  let notificationShown = false;
   
-  // 2. If service worker fails, try direct Notification API as fallback
-  if (!swResult && Notification.permission === 'granted') {
+  // First try using the Notification API directly (works better in some browsers)
+  if (Notification.permission === 'granted') {
     try {
       const notification = new Notification(title, {
         ...options,
@@ -147,14 +164,111 @@ const showChatNotification = async (message, sender, conversationId) => {
         window.location.href = options.data.url;
       };
       
-      return true;
+      notificationShown = true;
+      console.log('Direct notification shown successfully');
     } catch (error) {
-      console.error('Fallback notification failed:', error);
-      return false;
+      console.error('Direct notification failed:', error);
     }
   }
   
-  return swResult;
+  // If direct notification fails, try service worker notification
+  if (!notificationShown) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, options);
+      console.log('Service worker notification shown successfully');
+      notificationShown = true;
+    } catch (error) {
+      console.error('Service worker notification failed:', error);
+    }
+  }
+  
+  // If both methods fail, show in-app notification
+  if (!notificationShown) {
+    showInAppNotification(title, options.body);
+  }
+
+  return notificationShown;
+};
+
+// Show an in-app notification for when system notifications fail
+const showInAppNotification = (title, body) => {
+  // Create or get notification container
+  let container = document.getElementById('in-app-notification-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'in-app-notification-container';
+    container.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 300px;
+      max-width: 80vw;
+    `;
+    document.body.appendChild(container);
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    background: rgba(30, 30, 30, 0.9);
+    border-left: 4px solid #9333ea;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    animation: slideIn 0.3s ease-out forwards;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  `;
+  
+  // Create title element
+  const titleEl = document.createElement('div');
+  titleEl.textContent = title;
+  titleEl.style.cssText = 'font-weight: bold; margin-bottom: 5px;';
+  
+  // Create body element
+  const bodyEl = document.createElement('div');
+  bodyEl.textContent = body;
+  bodyEl.style.cssText = 'font-size: 14px; color: rgba(255, 255, 255, 0.8);';
+  
+  // Add elements to notification
+  notification.appendChild(titleEl);
+  notification.appendChild(bodyEl);
+  
+  // Add to container
+  container.appendChild(notification);
+  
+  // Handle click
+  notification.addEventListener('click', () => {
+    notification.style.opacity = '0';
+    setTimeout(() => {
+      container.removeChild(notification);
+    }, 300);
+  });
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => {
+      if (container.contains(notification)) {
+        container.removeChild(notification);
+      }
+    }, 300);
+  }, 5000);
+  
+  // Add CSS animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
 };
 
 export {
@@ -165,5 +279,6 @@ export {
   isPermissionBlocked,
   showNotification,
   showChatNotification,
-  playNotificationSound
+  playNotificationSound,
+  showInAppNotification
 };
