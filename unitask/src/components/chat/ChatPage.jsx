@@ -182,101 +182,120 @@ const ChatPage = () => {
         return;
       }
       
-      // Add message to current messages if for selected conversation
-      if (selectedConversation && selectedConversation.id === message.conversation_id) {
-        console.log('[Chat] Adding message to current conversation');
-        
-        // Force update with function form to ensure latest state
-        setMessages(prevMessages => {
-          // Check if message already exists
-          const exists = prevMessages.some(msg => msg.id === message.id);
-          if (exists) {
-            console.log('[Chat] Message already exists, not adding duplicate');
-            return prevMessages;
-          }
-          console.log('[Chat] Adding new message to state');
-          return [...prevMessages, message];
-        });
-        
-        // Force scroll to bottom when message is added
-        setTimeout(() => {
-          const messagesEnd = document.getElementById('messages-end-ref');
-          if (messagesEnd) {
-            messagesEnd.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 100);
-      } else {
-        console.log('[Chat] Message is for a different conversation:', message.conversation_id);
-      }
-      
-      // Update conversations list with latest message info
-      setConversations(prevConversations => {
-        // Check if conversation exists in the list
-        const existingConvIndex = prevConversations.findIndex(
-          conv => conv.id === message.conversation_id
-        );
-        
-        if (existingConvIndex === -1) {
-          console.log('[Chat] Conversation not in list, fetching fresh data');
-          // Conversation not in our list, need to fetch fresh data
-          getUserConversations(currentUser.id).then(setConversations);
-          return prevConversations;
-        }
-        
-        // Make a copy of conversations to modify
-        const updatedConversations = [...prevConversations];
-        
-        // Get the conversation to update
-        const conversation = { ...updatedConversations[existingConvIndex] };
-        
-        // Update with new message info
-        conversation.last_message = message.content;
-        conversation.updated_at = message.created_at || new Date().toISOString();
-        
-        // Update the participants with latest online status
-        if (message.sender && conversation.participants) {
-          conversation.participants = conversation.participants.map(participant => {
-            // If this participant is the message sender, update their last_active time
-            if (participant.id === message.sender_id) {
-              return {
-                ...participant,
-                last_active: new Date().toISOString()
-              };
-            }
-            return participant;
-          });
-        }
-        
-        // Update unread count if this is not from current user
-        if (message.sender_id !== currentUser.id) {
-          // Only increment unread count if this isn't the selected conversation
-          if (!selectedConversation || selectedConversation.id !== message.conversation_id) {
-            conversation.unread_count = (conversation.unread_count || 0) + 1;
+      // IMPORTANT FIX: Force redraw when message is received
+      setTimeout(() => {
+        // Add message to current messages if for selected conversation
+        if (selectedConversation && selectedConversation.id === message.conversation_id) {
+          console.log('[Chat] Adding message to current conversation');
+          
+          // Force update with function form to ensure latest state
+          setMessages(prevMessages => {
+            // Check if message already exists
+            const exists = prevMessages.some(msg => {
+              // Check by ID or content+sender+timestamp for optimistic messages
+              return msg.id === message.id || 
+                    (msg._isOptimistic && 
+                     msg.content === message.content && 
+                     msg.sender_id === message.sender_id);
+            });
             
-            // Show notification if this isn't the active conversation or window is not focused
-            if (!document.hasFocus()) {
-              // Make sure we have sender data
-              if (!message.sender) {
-                message.sender = {
-                  display_name: 'New message',
-                  id: message.sender_id
+            if (exists) {
+              console.log('[Chat] Message already exists, not adding duplicate');
+              // Replace optimistic message with confirmed one if needed
+              return prevMessages.map(msg => {
+                if (msg._isOptimistic && 
+                    msg.content === message.content && 
+                    msg.sender_id === message.sender_id) {
+                  return { ...message, _wasOptimistic: true };
+                }
+                return msg;
+              });
+            }
+            
+            console.log('[Chat] Adding new message to state');
+            return [...prevMessages, message];
+          });
+          
+          // Force scroll to bottom when message is added
+          setTimeout(() => {
+            const messagesEnd = document.getElementById('messages-end-ref');
+            if (messagesEnd) {
+              messagesEnd.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 100);
+        } else {
+          console.log('[Chat] Message is for a different conversation:', message.conversation_id);
+        }
+        
+        // Update conversations list with latest message info
+        setConversations(prevConversations => {
+          // Check if conversation exists in the list
+          const existingConvIndex = prevConversations.findIndex(
+            conv => conv.id === message.conversation_id
+          );
+          
+          if (existingConvIndex === -1) {
+            console.log('[Chat] Conversation not in list, fetching fresh data');
+            // Conversation not in our list, need to fetch fresh data
+            getUserConversations(currentUser.id).then(setConversations);
+            return prevConversations;
+          }
+          
+          // Make a copy of conversations to modify
+          const updatedConversations = [...prevConversations];
+          
+          // Get the conversation to update
+          const conversation = { ...updatedConversations[existingConvIndex] };
+          
+          // Update with new message info
+          conversation.last_message = message.content;
+          conversation.updated_at = message.created_at || new Date().toISOString();
+          
+          // Update the participants with latest online status
+          if (message.sender && conversation.participants) {
+            conversation.participants = conversation.participants.map(participant => {
+              // If this participant is the message sender, update their last_active time
+              if (participant.id === message.sender_id) {
+                return {
+                  ...participant,
+                  last_active: new Date().toISOString()
                 };
               }
+              return participant;
+            });
+          }
+          
+          // Update unread count if this is not from current user
+          if (message.sender_id !== currentUser.id) {
+            // Only increment unread count if this isn't the selected conversation
+            if (!selectedConversation || selectedConversation.id !== message.conversation_id) {
+              conversation.unread_count = (conversation.unread_count || 0) + 1;
               
-              // Show notification
-              showChatNotification(message.content, message.sender, message.conversation_id);
+              // Show notification if this isn't the active conversation or window is not focused
+              if (!document.hasFocus()) {
+                // Make sure we have sender data
+                if (!message.sender) {
+                  message.sender = {
+                    display_name: 'New message',
+                    id: message.sender_id
+                  };
+                }
+                
+                // Show notification
+                showChatNotification(message.content, message.sender, message.conversation_id);
+              }
             }
           }
-        }
-        
-        // Replace the old conversation with updated one
-        updatedConversations[existingConvIndex] = conversation;
-        
-        // Sort conversations by most recent message
-        return updatedConversations.sort(
-          (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
-        );
-      });
+          
+          // Replace the old conversation with updated one
+          updatedConversations[existingConvIndex] = conversation;
+          
+          // Sort conversations by most recent message
+          return updatedConversations.sort(
+            (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
+          );
+        });
+      }, 10); // Small timeout to ensure proper event loop handling
     };
     
     // Register event listener for new messages
@@ -368,25 +387,29 @@ const ChatPage = () => {
     }
     
     console.log(`[Chat] Sending message to conversation ${selectedConversation.id}`);
+    const messageId = `temp-${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    
     const payload = {
       conversationId: selectedConversation.id,
       senderId: currentUser.id,
-      content: content.trim()
+      content: content.trim(),
+      timestamp
     };
     
     // Create optimistic message for instant UI update
     const optimisticMessage = {
-      id: `temp-${Date.now()}`,
+      id: messageId,
       conversation_id: selectedConversation.id,
       sender_id: currentUser.id,
       content: content.trim(),
-      created_at: new Date().toISOString(),
+      created_at: timestamp,
       is_read: false,
       sender: {
         id: currentUser.id,
         display_name: currentUser.display_name,
         avatar_url: currentUser.avatar_url,
-        last_active: new Date().toISOString() // Add fresh timestamp
+        last_active: timestamp
       },
       _isOptimistic: true // Mark as optimistic to identify later
     };
@@ -399,7 +422,7 @@ const ChatPage = () => {
       setSelectedConversation(prev => ({
         ...prev,
         last_message: content.trim(),
-        updated_at: new Date().toISOString()
+        updated_at: timestamp
       }));
     }
     
@@ -411,34 +434,46 @@ const ChatPage = () => {
       }
     }, 50);
     
-    // Send via socket
-    socket.emit('send-message', payload, (response) => {
-      if (response && response.error) {
-        console.error('[Chat] Error sending message (server response):', response.error);
-        
-        // Remove the optimistic message on error
-        setMessages(prevMessages => 
-          prevMessages.filter(msg => msg.id !== optimisticMessage.id)
-        );
-      }
-      else if (response && response.success) {
-        console.log('[Chat] Message sent successfully (acknowledged by server)');
-        
-        // Update conversations to reflect new message
-        setConversations(prevConvs => {
-          return prevConvs.map(conv => {
-            if (conv.id === selectedConversation.id) {
-              return {
-                ...conv,
-                last_message: content.trim(),
-                updated_at: new Date().toISOString()
-              };
-            }
-            return conv;
-          }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-        });
-      }
-    });
+    // Send via socket with retry logic for better reliability
+    const sendWithRetry = (attempt = 0) => {
+      socket.emit('send-message', payload, (response) => {
+        if (response && response.error) {
+          console.error('[Chat] Error sending message (server response):', response.error);
+          
+          if (attempt < 2) {
+            console.log(`[Chat] Retrying message send (attempt ${attempt + 1})...`);
+            setTimeout(() => sendWithRetry(attempt + 1), 1000);
+          } else {
+            // Only remove the optimistic message after all retries fail
+            setMessages(prevMessages => 
+              prevMessages.filter(msg => msg.id !== messageId)
+            );
+            
+            // Show error to user
+            alert('Failed to send message. Please try again.');
+          }
+        }
+        else if (response && response.success) {
+          console.log('[Chat] Message sent successfully (acknowledged by server):', response);
+          
+          // Update conversations to reflect new message
+          setConversations(prevConvs => {
+            return prevConvs.map(conv => {
+              if (conv.id === selectedConversation.id) {
+                return {
+                  ...conv,
+                  last_message: content.trim(),
+                  updated_at: timestamp
+                };
+              }
+              return conv;
+            }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+          });
+        }
+      });
+    };
+    
+    sendWithRetry();
   };
 
   // Handle starting a new conversation

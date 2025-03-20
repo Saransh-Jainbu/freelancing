@@ -26,7 +26,7 @@ export const initializeSocket = () => {
     reconnectionDelayMax: 5000,
     timeout: 20000,
     autoConnect: true,
-    forceNew: false,
+    forceNew: false, // Don't force a new connection on reload
     transports: ['websocket', 'polling'] // Try WebSocket first, fallback to polling
   });
   
@@ -39,6 +39,9 @@ export const initializeSocket = () => {
     if (userId) {
       socket.emit('user-online', userId);
     }
+    
+    // Add socket instance to window for debugging purposes
+    window._socket = socket;
   });
   
   socket.on('connect_error', (error) => {
@@ -97,7 +100,16 @@ export const sendMessage = (conversationId, senderId, content, callback) => {
     // Update the user's last active timestamp with each message
     s.emit('user-active-update', senderId);
     
-    s.emit('send-message', { conversationId, senderId, content }, (response) => {
+    // Enhanced payload with timestamp for better ordering
+    const payload = {
+      conversationId,
+      senderId,
+      content,
+      timestamp: new Date().toISOString(),
+      clientId: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+    
+    s.emit('send-message', payload, (response) => {
       if (response) {
         if (callback) callback(response);
       } else if (retries < 2) {

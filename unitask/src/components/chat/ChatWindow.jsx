@@ -37,6 +37,37 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
     }
   }, [messages, conversation.id, currentUser.id, socket]);
 
+  // Add typing status handling
+  useEffect(() => {
+    if (!socket || !conversation) return;
+    
+    // Add typing event listener
+    socket.on('user-typing', (data) => {
+      if (data.conversationId === conversation.id && data.userId !== currentUser.id) {
+        console.log(`User ${data.userId} is typing: ${data.isTyping}`);
+        setTyping(data.isTyping);
+        
+        // Auto-clear typing indicator after 5 seconds as a fallback
+        if (data.isTyping) {
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          
+          typingTimeoutRef.current = setTimeout(() => {
+            setTyping(false);
+          }, 5000);
+        }
+      }
+    });
+    
+    return () => {
+      socket.off('user-typing');
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [socket, conversation, currentUser.id]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -133,6 +164,40 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
     
     return () => clearInterval(interval);
   }, [partner, isOnline]);
+
+  // Handle input changes and emit typing status
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+    
+    // Emit typing status
+    if (socket && conversation) {
+      // Only emit if this is a new typing event or after 3 seconds
+      if (!typingTimeoutRef.current) {
+        socket.emit('typing', {
+          conversationId: conversation.id,
+          userId: currentUser.id,
+          isTyping: true
+        });
+      }
+      
+      // Clear any existing typing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set timeout to clear typing status
+      typingTimeoutRef.current = setTimeout(() => {
+        if (socket) {
+          socket.emit('typing', {
+            conversationId: conversation.id,
+            userId: currentUser.id,
+            isTyping: false
+          });
+        }
+        typingTimeoutRef.current = null;
+      }, 3000);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -288,7 +353,7 @@ const ChatWindow = ({ conversation, messages, onSendMessage, currentUser, onDele
         <div className="flex items-center gap-2">
           <textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyPress}
             placeholder="Type a message..."
             className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContextValue';
 import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 
 // Import components
 import LoginPage from './components/login';
@@ -19,6 +20,10 @@ import ChatNotificationService from './components/chat/ChatNotificationService';
 import EnablePushNotifications from './components/chat/EnablePushNotifications';
 import MobileNotificationBanner from './components/chat/MobileNotificationBanner';
 import ChatRealTimeProvider from './components/chat/ChatRealTimeService';
+
+// Import the socket service and debugger
+import { getSocket } from './services/socket';
+import ChatDebugger from './components/chat/ChatDebugger';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -51,6 +56,21 @@ ProtectedRoute.propTypes = {
 // Routes Component - Uses the auth context
 const AppRoutes = () => {
   const { currentUser } = useAuth();
+  // Initialize socket for debugging if user is logged in
+  const [socket, setSocket] = useState(null);
+  
+  useEffect(() => {
+    if (currentUser) {
+      const socketInstance = getSocket();
+      setSocket(socketInstance);
+      
+      // Force a check for socket connection
+      if (socketInstance.disconnected) {
+        console.log('[App] Socket is disconnected, reconnecting...');
+        socketInstance.connect();
+      }
+    }
+  }, [currentUser]);
 
   return (
     <>
@@ -62,6 +82,11 @@ const AppRoutes = () => {
       
       {/* Mobile-specific notification banner */}
       {currentUser && <MobileNotificationBanner />}
+      
+      {/* Debug Tool - only in development */}
+      {process.env.NODE_ENV === 'development' && currentUser && 
+        <ChatDebugger socket={socket} visible={false} />
+      }
       
       <Routes>
         {/* Landing page as home route */}
