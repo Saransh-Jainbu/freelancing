@@ -272,9 +272,9 @@ const ChatComponent = () => {
   }
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black text-white flex flex-col overflow-hidden">
       {/* Chat Header - Fixed at top */}
-      <div className="bg-gradient-to-r from-gray-900/80 to-gray-800/50 border-b border-white/10 p-4 flex items-center justify-between z-20 backdrop-blur-xl">
+      <div className="bg-gradient-to-r from-gray-900/80 to-gray-800/50 border-b border-white/10 p-4 flex items-center justify-between z-20 backdrop-blur-xl flex-shrink-0">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/messages')}
@@ -367,7 +367,7 @@ const ChatComponent = () => {
       </div>
 
       {/* Input area - Fixed at bottom */}
-      <div className="bg-gradient-to-r from-gray-900/80 to-gray-800/50 border-t border-white/10 p-4 z-20 backdrop-blur-xl">
+      <div className="bg-gradient-to-r from-gray-900/80 to-gray-800/50 border-t border-white/10 p-4 z-20 backdrop-blur-xl flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <textarea
