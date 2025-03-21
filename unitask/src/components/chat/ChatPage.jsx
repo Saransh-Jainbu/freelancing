@@ -179,7 +179,7 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="h-screen w-full bg-black text-white flex flex-col overflow-hidden fixed inset-0">
+    <div className="h-screen w-full bg-black text-white overflow-hidden">
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -257,7 +257,7 @@ const ChatPage = () => {
         </div>
       )}
     
-      <div className="flex-1 flex overflow-hidden">
+      <div className="h-full flex overflow-hidden">
         {/* Conversations sidebar */}
         <div 
           className={`border-r border-white/10 bg-gray-900 ${
@@ -294,14 +294,14 @@ const ChatPage = () => {
         </div>
 
         {/* Chat area - Fixed container */}
-        <div className="flex-1 flex flex-col bg-black overflow-hidden relative">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {error && (
-            <div className="bg-red-500/10 text-red-500 p-4 text-center flex-shrink-0 absolute top-0 left-0 right-0 z-30">
+            <div className="bg-red-500/10 text-red-500 p-4 text-center flex-shrink-0">
               {error}
             </div>
           )}
           {activeConversation ? (
-            <div className="absolute inset-0 flex flex-col overflow-hidden">
+            <div className="h-full flex flex-col overflow-hidden">
               {/* Chat Header */}
               <div className="flex-shrink-0">
                 <ChatHeader
@@ -313,7 +313,7 @@ const ChatPage = () => {
               </div>
               
               {/* Chat Component Container */}
-              <div className="flex-1 overflow-hidden relative">
+              <div className="flex-1 overflow-hidden">
                 <ChatComponent />
               </div>
             </div>

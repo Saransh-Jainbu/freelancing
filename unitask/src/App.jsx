@@ -34,8 +34,11 @@ const ProtectedRoute = ({ children }) => {
 
   return (
     <>
-      <Navigation />
-      {children}
+      {/* Add this conditional to not render Navigation for chat route */}
+      {!window.location.pathname.includes('/chat') && <Navigation />}
+      <div className={window.location.pathname.includes('/chat') ? 'h-screen overflow-hidden' : ''}>
+        {children}
+      </div>
     </>
   );
 };
