@@ -45,6 +45,10 @@ const ChatComponent = () => {
     
     // Listen for new messages
     socket.on('new-message', (message) => {
+      // When receiving a new message, ensure we have the sender's avatar
+      if (message.sender_id !== currentUser.id) {
+        fetchUserAvatar(message.sender_id);
+      }
       setMessages(prev => [...prev, message]);
     });
     
@@ -57,7 +61,7 @@ const ChatComponent = () => {
       }
     });
 
-    // Fetch messages
+    // Fetch messages and ensure avatars are loaded for each sender
     const fetchMessages = async () => {
       try {
         const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages?userId=${currentUser.id}`);
@@ -65,6 +69,18 @@ const ChatComponent = () => {
         
         if (data.success) {
           setMessages(data.messages);
+          
+          // Create a Set of unique sender IDs to load avatars for
+          const senderIds = new Set();
+          data.messages.forEach(message => {
+            if (message.sender_id !== currentUser.id) {
+              senderIds.add(message.sender_id);
+            }
+          });
+          
+          // Load avatars for all unique senders in parallel
+          const promises = Array.from(senderIds).map(fetchUserAvatar);
+          await Promise.all(promises);
         } else {
           setError(data.message || 'Failed to load messages');
         }
@@ -84,30 +100,15 @@ const ChatComponent = () => {
         
         if (data.success) {
           setConversation(data.conversation);
-          const otherParticipants = data.conversation.participants.filter(
+          const otherParticipants = data.conversation.participants?.filter(
             p => p.id !== currentUser.id
-          );
+          ) || [];
           setParticipants(otherParticipants);
           
-          // Now that we have participants, load their complete profiles to get avatars
-          const avatarPromises = otherParticipants.map(async (participant) => {
-            try {
-              const profile = await getProfile(participant.id);
-              return { id: participant.id, avatarUrl: profile.avatar_url };
-            } catch (error) {
-              console.error(`Error loading profile for user ${participant.id}:`, error);
-              return { id: participant.id, avatarUrl: null };
-            }
-          });
-          
-          const avatarResults = await Promise.all(avatarPromises);
-          const avatarMap = {};
-          avatarResults.forEach(result => {
-            avatarMap[result.id] = result.avatarUrl;
-          });
-          
-          setParticipantAvatars(avatarMap);
-          setLoadingAvatars(false);
+          // Pre-load avatars for participants
+          for (const participant of otherParticipants) {
+            fetchUserAvatar(participant.id);
+          }
         } else {
           setError(data.message || 'Failed to load conversation');
         }
@@ -117,8 +118,8 @@ const ChatComponent = () => {
       }
     };
 
-    fetchMessages();
-    fetchConversation();
+    // Fetch and cache messages and conversation data
+    Promise.all([fetchMessages(), fetchConversation()]);
 
     // Clean up event listeners
     return () => {
@@ -126,6 +127,90 @@ const ChatComponent = () => {
       socket.off('user-typing');
     };
   }, [socket, conversationId, currentUser]);
+
+  // Add a new function to fetch and cache user avatars
+  const fetchUserAvatar = async (userId) => {
+    // Skip if we already have this user's avatar
+    if (participantAvatars[userId]) return participantAvatars[userId];
+    
+    try {
+      // First check if this is already in participants with avatar_url
+      const existingParticipant = participants.find(p => p.id === userId);
+      if (existingParticipant?.avatar_url) {
+        setParticipantAvatars(prev => ({
+          ...prev,
+          [userId]: existingParticipant.avatar_url
+        }));
+        return existingParticipant.avatar_url;
+      }
+      
+      // Otherwise, fetch the complete profile
+      const profileData = await getProfile(userId);
+      const avatarUrl = profileData?.avatar_url || null;
+      
+      // Cache the fetched avatar URL
+      setParticipantAvatars(prev => ({
+        ...prev,
+        [userId]: avatarUrl
+      }));
+      
+      // If we're still loading avatars and we've found avatars for all participants, mark as done
+      if (loadingAvatars) {
+        const allParticipantsHaveAvatars = participants.every(
+          p => p.id === currentUser.id || participantAvatars[p.id] !== undefined
+        );
+        
+        if (allParticipantsHaveAvatars) {
+          setLoadingAvatars(false);
+        }
+      }
+      
+      return avatarUrl;
+    } catch (error) {
+      console.error(`Error fetching avatar for user ${userId}:`, error);
+      setParticipantAvatars(prev => ({
+        ...prev,
+        [userId]: null
+      }));
+      return null;
+    }
+  };
+
+  // Modified getAvatarUrl function with better caching
+  const getAvatarUrl = (sender) => {
+    if (!sender) return null;
+    
+    if (sender.id === currentUser?.id) {
+      // For current user
+      return currentUser?.avatar_url || currentUser?.photoURL || null;
+    } else {
+      // For other participants
+      
+      // First check our cached avatars map - this should be the quickest way
+      if (participantAvatars[sender.id] !== undefined) {
+        return participantAvatars[sender.id];
+      }
+      
+      // If not in cache, check if sender has avatar_url directly
+      if (sender.avatar_url) {
+        // Cache it for future use
+        if (participantAvatars[sender.id] === undefined) {
+          setParticipantAvatars(prev => ({
+            ...prev,
+            [sender.id]: sender.avatar_url
+          }));
+        }
+        return sender.avatar_url;
+      }
+      
+      // If we get here, we need to fetch the avatar
+      // Trigger fetch in background but don't wait for it
+      fetchUserAvatar(sender.id);
+      
+      // Return null for now
+      return null;
+    }
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -282,7 +367,7 @@ const ChatComponent = () => {
               className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
             >
               {!isMyMessage && (
-                <div className="flex-shrink-0 mr-3">
+                <div className="flex-shrink-0 mr-3"></div>
                   {loadingAvatars ? (
                     <div className="h-8 w-8 rounded-full bg-white/10 animate-pulse"></div>
                   ) : getAvatarUrl(message.sender) ? (
@@ -304,9 +389,9 @@ const ChatComponent = () => {
                     ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-tr-none' 
                     : 'bg-white/10 rounded-tl-none'
                 }`}
-              >
+              ></div>
                 {message.content}
-                <div className={`text-xs mt-1 ${isMyMessage ? 'text-white/70' : 'text-gray-400'}`}>
+                <div className={`text-xs mt-1 ${isMyMessage ? 'text-white/70' : 'text-gray-400'}`}></div>
                   {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
@@ -337,7 +422,7 @@ const ChatComponent = () => {
                 ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90' 
                 : 'bg-white/5 cursor-not-allowed'
             } transition-colors`}
-          >
+          ></button>
             <Send size={20} />
           </button>
         </div>
