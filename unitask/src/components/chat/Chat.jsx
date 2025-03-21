@@ -246,7 +246,7 @@ const ChatComponent = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
+      <div className="h-full w-full flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
         <p className="text-gray-400">Loading conversation...</p>
       </div>
@@ -255,8 +255,8 @@ const ChatComponent = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black text-white p-6">
-        <div className="max-w-4xl mx-auto bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10 text-center">
+      <div className="h-full w-full flex items-center justify-center">
+        <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10 text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-4">Error Loading Chat</h2>
           <p className="text-gray-300 mb-6">{error}</p>
@@ -272,7 +272,7 @@ const ChatComponent = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black text-white flex flex-col overflow-hidden">
+    <div className="h-full w-full flex flex-col overflow-hidden">
       {/* Chat Header - Fixed at top */}
       <div className="bg-gradient-to-r from-gray-900/80 to-gray-800/50 border-b border-white/10 p-4 flex items-center justify-between z-20 backdrop-blur-xl flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -375,7 +375,7 @@ const ChatComponent = () => {
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none max-h-20"
               rows="1"
             />
           </div>
