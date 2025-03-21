@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { X, Plus, Loader, Image, Camera } from 'lucide-react';
 import { createGig } from '../../api/gigs';
 import { uploadImage } from '../../api/upload';
+import { API_URL } from '../../api/constants';
 
 const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
   const [formData, setFormData] = useState({
