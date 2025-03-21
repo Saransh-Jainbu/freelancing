@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown, MessageSquare, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContextValue';
@@ -6,13 +6,35 @@ import { useAuth } from '../context/AuthContextValue';
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const { currentUser, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isProfileMenuOpen) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    
+    // Add event listener when component mounts
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    // Remove event listener when component unmounts
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProfileMenuOpen]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleAvatarError = () => {
+    setAvatarError(true);
   };
 
   const navItems = [
@@ -25,6 +47,45 @@ const Navigation = () => {
 
   const isActive = (path) => {
     return location.pathname === path;
+  };
+
+  // Default avatar or initials if no avatar is available
+  const getAvatarContent = () => {
+    if (!avatarError && currentUser?.avatar_url) {
+      return (
+        <img
+          className="h-8 w-8 rounded-full object-cover"
+          src={currentUser.avatar_url}
+          alt="Profile"
+          onError={handleAvatarError}
+        />
+      );
+    } else {
+      return (
+        <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
+          {currentUser?.display_name?.charAt(0) || 'U'}
+        </div>
+      );
+    }
+  };
+
+  const getMobileAvatarContent = () => {
+    if (!avatarError && currentUser?.avatar_url) {
+      return (
+        <img
+          className="h-10 w-10 rounded-full object-cover"
+          src={currentUser.avatar_url}
+          alt="Profile"
+          onError={handleAvatarError}
+        />
+      );
+    } else {
+      return (
+        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
+          {currentUser?.display_name?.charAt(0) || 'U'}
+        </div>
+      );
+    }
   };
 
   return (
@@ -63,14 +124,13 @@ const Navigation = () => {
             <div className="ml-3 relative">
               <div>
                 <button
-                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsProfileMenuOpen(!isProfileMenuOpen);
+                  }}
                   className="flex items-center gap-2 text-sm bg-white/5 border border-white/10 rounded-full px-3 py-2 hover:bg-white/10 focus:outline-none"
                 >
-                  <img
-                    className="h-8 w-8 rounded-full"
-                    src="/api/placeholder/32/32"
-                    alt="Profile"
-                  />
+                  {getAvatarContent()}
                   <span className="hidden md:block">{currentUser?.display_name || 'User'}</span>
                   <ChevronDown size={16} />
                 </button>
@@ -141,11 +201,7 @@ const Navigation = () => {
           <div className="pt-4 pb-3 border-t border-white/5">
             <div className="flex items-center px-5">
               <div className="flex-shrink-0">
-                <img
-                  className="h-10 w-10 rounded-full"
-                  src="/api/placeholder/40/40"
-                  alt="Profile"
-                />
+                {getMobileAvatarContent()}
               </div>
               <div className="ml-3">
                 <div className="text-base font-medium text-white">
