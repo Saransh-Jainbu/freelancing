@@ -2,14 +2,39 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown, MessageSquare, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContextValue';
+import { getProfile } from '../api/profile';
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [profileData, setProfileData] = useState(null);
   const { currentUser, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Fetch profile data when currentUser changes
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (currentUser?.id) {
+        try {
+          const profile = await getProfile(currentUser.id);
+          console.log("Fetched profile data:", profile);
+          setProfileData(profile);
+        } catch (error) {
+          console.error("Error fetching profile data:", error);
+        }
+      }
+    };
+
+    fetchProfileData();
+  }, [currentUser]);
+
+  // For debugging
+  useEffect(() => {
+    console.log("Navigation currentUser:", currentUser);
+    console.log("Navigation profileData:", profileData);
+  }, [currentUser, profileData]);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -34,6 +59,7 @@ const Navigation = () => {
   };
 
   const handleAvatarError = () => {
+    console.log("Avatar failed to load");
     setAvatarError(true);
   };
 
@@ -49,32 +75,56 @@ const Navigation = () => {
     return location.pathname === path;
   };
 
+  // Get avatar URL from currentUser with proper fallback handling
+  const getAvatarUrl = () => {
+    // First check profile data from API
+    if (profileData?.avatar_url) {
+      return profileData.avatar_url;
+    }
+    // Then check different possible locations in currentUser
+    if (currentUser?.avatar_url) {
+      return currentUser.avatar_url;
+    } else if (currentUser?.photoURL) {
+      return currentUser.photoURL;
+    } else if (currentUser?.profile?.avatar_url) {
+      return currentUser.profile.avatar_url;
+    }
+    return null;
+  };
+
   // Default avatar or initials if no avatar is available
   const getAvatarContent = () => {
-    if (!avatarError && currentUser?.avatar_url) {
+    const avatarUrl = getAvatarUrl();
+    console.log("Avatar URL being used:", avatarUrl);
+    
+    if (!avatarError && avatarUrl) {
       return (
         <img
           className="h-8 w-8 rounded-full object-cover"
-          src={currentUser.avatar_url}
+          src={avatarUrl}
           alt="Profile"
           onError={handleAvatarError}
         />
       );
     } else {
+      // Get display name from profile data first, then fall back to currentUser
+      const displayName = profileData?.display_name || currentUser?.display_name || currentUser?.name || '';
       return (
         <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
-          {currentUser?.display_name?.charAt(0) || 'U'}
+          {displayName.charAt(0) || 'U'}
         </div>
       );
     }
   };
 
   const getMobileAvatarContent = () => {
-    if (!avatarError && currentUser?.avatar_url) {
+    const avatarUrl = getAvatarUrl();
+    
+    if (!avatarError && avatarUrl) {
       return (
         <img
           className="h-10 w-10 rounded-full object-cover"
-          src={currentUser.avatar_url}
+          src={avatarUrl}
           alt="Profile"
           onError={handleAvatarError}
         />
@@ -82,10 +132,15 @@ const Navigation = () => {
     } else {
       return (
         <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
-          {currentUser?.display_name?.charAt(0) || 'U'}
+          {currentUser?.display_name?.charAt(0) || currentUser?.name?.charAt(0) || 'U'}
         </div>
       );
     }
+  };
+
+  // Get display name with fallbacks
+  const getDisplayName = () => {
+    return profileData?.display_name || currentUser?.display_name || currentUser?.name || 'User';
   };
 
   return (
@@ -131,7 +186,7 @@ const Navigation = () => {
                   className="flex items-center gap-2 text-sm bg-white/5 border border-white/10 rounded-full px-3 py-2 hover:bg-white/10 focus:outline-none"
                 >
                   {getAvatarContent()}
-                  <span className="hidden md:block">{currentUser?.display_name || 'User'}</span>
+                  <span className="hidden md:block">{getDisplayName()}</span>
                   <ChevronDown size={16} />
                 </button>
               </div>
@@ -205,7 +260,7 @@ const Navigation = () => {
               </div>
               <div className="ml-3">
                 <div className="text-base font-medium text-white">
-                  {currentUser?.display_name || 'User'}
+                  {getDisplayName()}
                 </div>
                 <div className="text-sm font-medium text-gray-400">
                   {currentUser?.email || 'user@example.com'}
