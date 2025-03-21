@@ -179,7 +179,8 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="fixed inset-0 h-screen w-full bg-black text-white overflow-hidden">
+    // Adjust top position to accommodate for navbar
+    <div className="fixed inset-x-0 bottom-0 top-16 bg-black text-white overflow-hidden">
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
