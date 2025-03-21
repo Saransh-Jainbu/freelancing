@@ -246,7 +246,7 @@ const ChatComponent = () => {
 
   if (loading) {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center">
+      <div className="h-full w-full flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
         <p className="text-gray-400">Loading conversation...</p>
       </div>
@@ -273,57 +273,6 @@ const ChatComponent = () => {
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
-      {/* Chat Header - Fixed at top */}
-      <div className="bg-gradient-to-r from-gray-900/80 to-gray-800/50 border-b border-white/10 p-4 flex items-center justify-between z-20 backdrop-blur-xl flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/messages')}
-            className="p-2 rounded-full hover:bg-white/5"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex items-center gap-3">
-            {participants[0] && (
-              <div className="relative">
-                {loadingAvatars ? (
-                  <div className="h-10 w-10 rounded-full bg-white/10 animate-pulse"></div>
-                ) : getAvatarUrl(participants[0]) ? (
-                  <img 
-                    src={getAvatarUrl(participants[0])} 
-                    alt={participants[0].display_name}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
-                    {getInitials(participants[0].display_name)}
-                  </div>
-                )}
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-900"></span>
-              </div>
-            )}
-            <div>
-              <h2 className="font-medium">
-                {participants[0]?.display_name || 'Chat Partner'}
-              </h2>
-              <p className="text-xs text-gray-400">
-                {typingUsers.length > 0 ? 'Typing...' : 'Online'}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="p-2 rounded-full hover:bg-white/5">
-            <Phone size={20} />
-          </button>
-          <button className="p-2 rounded-full hover:bg-white/5">
-            <Video size={20} />
-          </button>
-          <button className="p-2 rounded-full hover:bg-white/5">
-            <MoreVertical size={20} />
-          </button>
-        </div>
-      </div>
-
       {/* Messages Container - The ONLY element that should scroll */}
       <div className="flex-1 overflow-y-scroll overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {messages.map((message) => {

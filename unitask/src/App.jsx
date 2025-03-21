@@ -19,6 +19,7 @@ import GigDetails from "./components/gigs/GigDetails";
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
+  const isChatRoute = window.location.pathname.startsWith('/chat');
 
   if (loading) {
     return (
@@ -32,13 +33,16 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // For chat routes, render without Navigation and with full height
+  if (isChatRoute) {
+    return children;
+  }
+
+  // For all other routes, include Navigation
   return (
     <>
-      {/* Add this conditional to not render Navigation for chat route */}
-      {!window.location.pathname.includes('/chat') && <Navigation />}
-      <div className={window.location.pathname.includes('/chat') ? 'h-screen overflow-hidden' : ''}>
-        {children}
-      </div>
+      <Navigation />
+      {children}
     </>
   );
 };

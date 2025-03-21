@@ -179,7 +179,7 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="h-screen w-full bg-black text-white overflow-hidden">
+    <div className="fixed inset-0 h-screen w-full bg-black text-white overflow-hidden">
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -313,7 +313,7 @@ const ChatPage = () => {
               </div>
               
               {/* Chat Component Container */}
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden relative">
                 <ChatComponent />
               </div>
             </div>
