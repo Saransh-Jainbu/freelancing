@@ -276,8 +276,8 @@ const ChatPage = () => {
             </button>
           </div>
           
-          {/* Conversation List - Scrollable */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          {/* Conversation List - This should scroll */}
+          <div className="flex-1 overflow-y-scroll overflow-x-hidden">
             {conversations.length > 0 ? (
               <ConversationList
                 conversations={conversations}
@@ -293,7 +293,7 @@ const ChatPage = () => {
           </div>
         </div>
 
-        {/* Chat area - Fixed height container */}
+        {/* Chat area - Fixed container */}
         <div className="flex-1 flex flex-col bg-black overflow-hidden relative">
           {error && (
             <div className="bg-red-500/10 text-red-500 p-4 text-center flex-shrink-0 absolute top-0 left-0 right-0 z-30">
@@ -302,7 +302,7 @@ const ChatPage = () => {
           )}
           {activeConversation ? (
             <div className="absolute inset-0 flex flex-col overflow-hidden">
-              {/* Chat Header - Fixed */}
+              {/* Chat Header */}
               <div className="flex-shrink-0">
                 <ChatHeader
                   participants={getActiveParticipants()}
@@ -312,7 +312,7 @@ const ChatPage = () => {
                 />
               </div>
               
-              {/* Chat Component Container - Fixed height with internal scrolling */}
+              {/* Chat Component Container */}
               <div className="flex-1 overflow-hidden relative">
                 <ChatComponent />
               </div>

@@ -324,8 +324,8 @@ const ChatComponent = () => {
         </div>
       </div>
 
-      {/* Messages Container - Scrollable area - IMPORTANT: This is the only section that should scroll */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+      {/* Messages Container - The ONLY element that should scroll */}
+      <div className="flex-1 overflow-y-scroll overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {messages.map((message) => {
           const isMyMessage = message.sender_id === currentUser.id;
           return (
