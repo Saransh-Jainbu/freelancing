@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown, MessageSquare, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContextValue';
@@ -12,6 +12,8 @@ const Navigation = () => {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const profileMenuRef = useRef(null);
+  const profileButtonRef = useRef(null);
 
   // Fetch profile data when currentUser changes
   useEffect(() => {
@@ -39,15 +41,19 @@ const Navigation = () => {
   // Close profile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (isProfileMenuOpen) {
+      // Only close if clicking outside both the button and the menu
+      if (
+        isProfileMenuOpen && 
+        profileMenuRef.current && 
+        profileButtonRef.current && 
+        !profileMenuRef.current.contains(event.target) &&
+        !profileButtonRef.current.contains(event.target)
+      ) {
         setIsProfileMenuOpen(false);
       }
     };
     
-    // Add event listener when component mounts
     document.addEventListener('mousedown', handleClickOutside);
-    
-    // Remove event listener when component unmounts
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -143,6 +149,18 @@ const Navigation = () => {
     return profileData?.display_name || currentUser?.display_name || currentUser?.name || 'User';
   };
 
+  // Handle profile menu toggle
+  const toggleProfileMenu = (e) => {
+    e.stopPropagation();
+    setIsProfileMenuOpen(!isProfileMenuOpen);
+  };
+
+  // Handle menu item click
+  const handleMenuItemClick = (path) => {
+    setIsProfileMenuOpen(false);
+    navigate(path);
+  };
+
   return (
     <nav className="border-b border-white/5 bg-black/95 backdrop-blur-xl sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -179,10 +197,8 @@ const Navigation = () => {
             <div className="ml-3 relative">
               <div>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsProfileMenuOpen(!isProfileMenuOpen);
-                  }}
+                  ref={profileButtonRef}
+                  onClick={toggleProfileMenu}
                   className="flex items-center gap-2 text-sm bg-white/5 border border-white/10 rounded-full px-3 py-2 hover:bg-white/10 focus:outline-none"
                 >
                   {getAvatarContent()}
@@ -191,23 +207,24 @@ const Navigation = () => {
                 </button>
               </div>
               {isProfileMenuOpen && (
-                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-gray-900 border border-white/10 ring-1 ring-black ring-opacity-5">
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
-                    onClick={() => setIsProfileMenuOpen(false)}
+                <div 
+                  ref={profileMenuRef}
+                  className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-gray-900 border border-white/10 ring-1 ring-black ring-opacity-5 z-50"
+                >
+                  <button
+                    onClick={() => handleMenuItemClick('/profile')}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
                   >
                     <User size={16} />
                     Your Profile
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
-                    onClick={() => setIsProfileMenuOpen(false)}
+                  </button>
+                  <button
+                    onClick={() => handleMenuItemClick('/settings')}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
                   >
                     <Settings size={16} />
                     Settings
-                  </Link>
+                  </button>
                   <div className="border-t border-white/5 my-1" />
                   <button
                     onClick={handleLogout}
@@ -268,24 +285,31 @@ const Navigation = () => {
               </div>
             </div>
             <div className="mt-3 px-2 space-y-1">
-              <Link
-                to="/profile"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
-                onClick={() => setIsMenuOpen(false)}
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  navigate('/profile');
+                }}
+                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
               >
                 <User size={18} />
                 Your Profile
-              </Link>
-              <Link
-                to="/settings"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
-                onClick={() => setIsMenuOpen(false)}
+              </button>
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  navigate('/settings');
+                }}
+                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
               >
                 <Settings size={18} />
                 Settings
-              </Link>
+              </button>
               <button
-                onClick={handleLogout}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  handleLogout();
+                }}
                 className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-400 hover:bg-white/5 flex items-center gap-3"
               >
                 <LogOut size={18} />
