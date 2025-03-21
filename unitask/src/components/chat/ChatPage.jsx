@@ -179,7 +179,7 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="h-screen w-full bg-black text-white flex flex-col overflow-hidden">
+    <div className="h-screen w-full bg-black text-white flex flex-col overflow-hidden fixed inset-0">
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -262,8 +262,9 @@ const ChatPage = () => {
         <div 
           className={`border-r border-white/10 bg-gray-900 ${
             showSidebar ? 'w-80' : 'w-0'
-          } transition-all duration-300 overflow-hidden flex flex-col`}
+          } transition-all duration-300 overflow-hidden flex flex-col h-full`}
         >
+          {/* Sidebar Header - Fixed */}
           <div className="p-4 border-b border-white/10 flex justify-between items-center flex-shrink-0">
             <h2 className="text-xl font-semibold">Messages</h2>
             <button 
@@ -275,7 +276,8 @@ const ChatPage = () => {
             </button>
           </div>
           
-          <div className="flex-1 overflow-y-auto">
+          {/* Conversation List - Scrollable */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {conversations.length > 0 ? (
               <ConversationList
                 conversations={conversations}
@@ -291,24 +293,27 @@ const ChatPage = () => {
           </div>
         </div>
 
-        {/* Chat area */}
-        <div className="flex-1 flex flex-col bg-black overflow-hidden">
+        {/* Chat area - Fixed height container */}
+        <div className="flex-1 flex flex-col bg-black overflow-hidden relative">
           {error && (
-            <div className="bg-red-500/10 text-red-500 p-4 text-center">
+            <div className="bg-red-500/10 text-red-500 p-4 text-center flex-shrink-0 absolute top-0 left-0 right-0 z-30">
               {error}
             </div>
           )}
           {activeConversation ? (
-            <div className="flex flex-col h-full overflow-hidden">
-              <ChatHeader
-                participants={getActiveParticipants()}
-                onToggleSidebar={() => setShowSidebar(prev => !prev)}
-                showSidebarToggle={!showSidebar}
-                onDeleteChat={handleDeleteChat}
-              />
+            <div className="absolute inset-0 flex flex-col overflow-hidden">
+              {/* Chat Header - Fixed */}
+              <div className="flex-shrink-0">
+                <ChatHeader
+                  participants={getActiveParticipants()}
+                  onToggleSidebar={() => setShowSidebar(prev => !prev)}
+                  showSidebarToggle={!showSidebar}
+                  onDeleteChat={handleDeleteChat}
+                />
+              </div>
               
-              {/* Chat component container */}
-              <div className="flex-1 overflow-hidden">
+              {/* Chat Component Container - Fixed height with internal scrolling */}
+              <div className="flex-1 overflow-hidden relative">
                 <ChatComponent />
               </div>
             </div>

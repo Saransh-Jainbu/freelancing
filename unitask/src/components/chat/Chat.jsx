@@ -272,7 +272,7 @@ const ChatComponent = () => {
   }
 
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden">
+    <div className="h-full w-full flex flex-col overflow-hidden absolute inset-0">
       {/* Chat Header - Fixed at top */}
       <div className="bg-gradient-to-r from-gray-900/80 to-gray-800/50 border-b border-white/10 p-4 flex items-center justify-between z-20 backdrop-blur-xl flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -324,8 +324,8 @@ const ChatComponent = () => {
         </div>
       </div>
 
-      {/* Messages Container - Scrollable area with explicit height constraint */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+      {/* Messages Container - Scrollable area - IMPORTANT: This is the only section that should scroll */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {messages.map((message) => {
           const isMyMessage = message.sender_id === currentUser.id;
           return (
