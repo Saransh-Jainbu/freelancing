@@ -36,7 +36,10 @@ const ProtectedRoute = ({ children }) => {
   return (
     <>
       <Navigation />
-      {children}
+      {/* Add a top padding to all routes to account for fixed navbar */}
+      <div className="pt-16">
+        {children}
+      </div>
     </>
   );
 };

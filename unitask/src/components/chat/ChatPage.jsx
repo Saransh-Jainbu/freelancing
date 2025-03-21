@@ -179,9 +179,9 @@ const ChatPage = () => {
   }
 
   return (
-    // Set a specific height that accounts for the navbar, and make it relative instead of fixed
-    // This will prevent it from overlapping with the navbar
-    <div className="h-[calc(100vh-64px)] mt-16 bg-black text-white overflow-hidden">
+    // Change to take full height of container without the navbar
+    // Remove the mt-16 since we already handled this in the ProtectedRoute component
+    <div className="h-[calc(100vh-64px)] bg-black text-white overflow-hidden">
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
