@@ -602,34 +602,46 @@ app.post('/api/conversations', async (req, res) => {
       });
     }
 
+    // Improved check for existing conversation between these users
+    // Sort participant IDs to ensure consistent query regardless of order
+    const sortedParticipantIds = [...participantIds].sort((a, b) => a - b);
+    
     // Check if conversation already exists between these users
     const existingConversation = await query(
-      `SELECT c.id FROM conversations c
-       JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
-       JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
-       WHERE cp1.user_id = $1 AND cp2.user_id = $2
+      `SELECT c.id 
+       FROM conversations c
+       JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
+       JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id = $2
+       WHERE cp1.user_id != cp2.user_id
        LIMIT 1`,
-      [participantIds[0], participantIds[1]]
+      [sortedParticipantIds[0], sortedParticipantIds[1]]
     );
 
     if (existingConversation.rows.length > 0) {
-      // Return existing conversation
+      // Return existing conversation with full details
       const conversation = await query(
-        `SELECT c.*, array_agg(json_build_object(
-          'id', u.id,
-          'display_name', u.display_name,
-          'avatar_url', p.avatar_url
-        )) as participants
-        FROM conversations c
-        JOIN conversation_participants cp ON c.id = cp.conversation_id
-        JOIN users u ON cp.user_id = u.id
-        LEFT JOIN profiles p ON u.id = p.user_id
-        WHERE c.id = $1
-        GROUP BY c.id`,
+        `SELECT c.*, 
+         (
+           SELECT json_agg(json_build_object(
+             'id', u.id,
+             'display_name', u.display_name,
+             'avatar_url', p.avatar_url
+           ))
+           FROM conversation_participants cp
+           JOIN users u ON cp.user_id = u.id
+           LEFT JOIN profiles p ON u.id = p.user_id
+           WHERE cp.conversation_id = c.id
+         ) as participants
+         FROM conversations c
+         WHERE c.id = $1`,
         [existingConversation.rows[0].id]
       );
 
-      return res.json({ success: true, conversation: conversation.rows[0] });
+      return res.json({ 
+        success: true, 
+        conversation: conversation.rows[0],
+        existed: true // Flag to indicate this was an existing conversation
+      });
     }
 
     // If no existing conversation, create new one

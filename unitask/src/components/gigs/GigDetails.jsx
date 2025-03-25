@@ -46,6 +46,11 @@ const GigDetails = () => {
       return;
     }
     
+    if (!currentUser) {
+      navigate('/login', { state: { from: `/gig/${gigId}` } });
+      return;
+    }
+    
     try {
       setContactLoading(true);
       
@@ -66,7 +71,16 @@ const GigDetails = () => {
       const data = await response.json();
       
       if (data.success) {
+        // Navigate to the conversation
         navigate(`/chat/${data.conversation.id}`);
+        
+        // If this is a newly created conversation, send an initial message
+        if (!data.existed) {
+          setTimeout(() => {
+            // This will be handled by the chat component when it loads
+            console.log('New conversation created, ready for first message');
+          }, 500);
+        }
       } else {
         setError("Failed to start conversation. Please try again.");
       }

@@ -22,6 +22,8 @@ const ChatComponent = () => {
   const messagesEndRef = useRef(null);
   const [participantAvatars, setParticipantAvatars] = useState({});
   const [loadingAvatars, setLoadingAvatars] = useState(true);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [isNewConversation, setIsNewConversation] = useState(false);
 
   // Fetch user avatar and store it
   const fetchUserAvatar = async (userId) => {
@@ -74,100 +76,74 @@ const ChatComponent = () => {
 
   // Handle conversation joining and message fetching
   useEffect(() => {
-    if (!socket || !conversationId || !currentUser?.id) return;
+    if (!socket || !conversationId || !currentUser) return;
 
-    setLoading(true);
-    
-    // Join conversation room
-    socket.emit('join-conversation', conversationId);
-    
-    // Listen for new messages
-    socket.on('new-message', (message) => {
-      // Immediately try to fetch avatar for the sender if it's not the current user
-      if (message.sender_id !== currentUser.id) {
-        fetchUserAvatar(message.sender_id);
-      }
-      setMessages(prev => [...prev, message]);
-    });
-    
-    // Listen for typing indicators
-    socket.on('user-typing', ({ userId, isTyping }) => {
-      if (isTyping) {
-        setTypingUsers(prev => [...prev.filter(id => id !== userId), userId]);
-      } else {
-        setTypingUsers(prev => prev.filter(id => id !== userId));
-      }
-    });
-
-    // Fetch messages
     const fetchMessages = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages?userId=${currentUser.id}`);
-        const data = await response.json();
+        setLoading(true);
+        // Join the conversation room in socket.io
+        socket.emit('join-conversation', conversationId);
         
-        if (data.success) {
-          setMessages(data.messages);
-          
-          // Get all unique sender IDs that aren't the current user
-          const uniqueSenderIds = [...new Set(
-            data.messages
-              .filter(msg => msg.sender_id !== currentUser.id)
-              .map(msg => msg.sender_id)
-          )];
-          
-          // Fetch avatars for all senders in parallel
-          await Promise.all(uniqueSenderIds.map(fetchUserAvatar));
-        } else {
-          setError(data.message || 'Failed to load messages');
+        // Get conversation details
+        const conversationResponse = await fetch(`${API_URL}/api/conversations/${conversationId}`);
+        
+        if (!conversationResponse.ok) {
+          // If conversation doesn't exist, redirect to chat home
+          navigate('/chat');
+          return;
         }
-      } catch (err) {
-        console.error('Error fetching messages:', err);
-        setError('Failed to load messages. Please try again.');
+        
+        const conversationData = await conversationResponse.json();
+        setConversation(conversationData.conversation);
+        
+        // Extract participants excluding current user
+        const otherParticipants = conversationData.conversation.participants?.filter(
+          p => p.id !== currentUser.id
+        ) || [];
+        setParticipants(otherParticipants);
+        
+        // Check if this is a new conversation (no messages yet)
+        const messagesResponse = await fetch(
+          `${API_URL}/api/conversations/${conversationId}/messages?userId=${currentUser.id}`
+        );
+        const messagesData = await messagesResponse.json();
+        
+        if (messagesData.success) {
+          const fetchedMessages = messagesData.messages || [];
+          setMessages(fetchedMessages);
+          
+          // If no messages and this is first load, set isNewConversation flag
+          if (fetchedMessages.length === 0 && isFirstLoad) {
+            setIsNewConversation(true);
+          }
+        }
+        
+        // Fetch avatars for all participants
+        for (const participant of otherParticipants) {
+          if (participant.id) {
+            await fetchUserAvatar(participant.id);
+          }
+        }
+        
+        setIsFirstLoad(false);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+        setError('Failed to load conversation. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
-    // Fetch conversation details
-    const fetchConversation = async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/conversations/${conversationId}`);
-        const data = await response.json();
-        
-        if (data.success) {
-          setConversation(data.conversation);
-          const otherParticipants = data.conversation.participants.filter(
-            p => p.id !== currentUser.id
-          );
-          setParticipants(otherParticipants);
-          
-          // Fetch avatars for all participants
-          const avatarPromises = otherParticipants.map(participant => 
-            fetchUserAvatar(participant.id)
-          );
-          
-          await Promise.all(avatarPromises);
-          setLoadingAvatars(false);
-        } else {
-          setError(data.message || 'Failed to load conversation');
-        }
-      } catch (err) {
-        console.error('Error fetching conversation:', err);
-        setError('Failed to load conversation. Please try again.');
-      }
-    };
+    fetchMessages();
+  }, [socket, conversationId, currentUser, navigate, isFirstLoad]);
 
-    // Run both fetches in parallel
-    Promise.all([fetchMessages(), fetchConversation()]).finally(() => {
-      setLoading(false);
-    });
-
-    // Clean up event listeners
-    return () => {
-      socket.off('new-message');
-      socket.off('user-typing');
-    };
-  }, [socket, conversationId, currentUser]);
+  // Show initial message prompt if new conversation
+  useEffect(() => {
+    if (isNewConversation && !loading) {
+      setInput("Hi! I'm interested in discussing this project with you.");
+      setIsNewConversation(false);
+    }
+  }, [isNewConversation, loading]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
