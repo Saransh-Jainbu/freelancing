@@ -38,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
   return (
     <>
       <Navigation />
-      {/* Add a top padding to all routes to account for fixed navbar */}
+      <NotificationBanner />
       <div className="pt-16">
         {children}
       </div>

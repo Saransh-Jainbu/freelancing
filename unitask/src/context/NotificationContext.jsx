@@ -124,6 +124,49 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  // Send a test notification
+  const sendTestNotification = async () => {
+    if (!currentUser) return;
+    
+    if (!pushEnabled) {
+      // Try to show a browser notification if push isn't enabled
+      if (notificationPermission === 'granted') {
+        showBrowserNotification(
+          'Test Notification', 
+          'This is a test notification from UniTask. If you can see this, notifications are working!',
+          () => window.focus()
+        );
+        return;
+      } else {
+        throw new Error('Notifications are not enabled');
+      }
+    }
+    
+    try {
+      const response = await fetch(`${API_URL}/api/notifications/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to send test notification');
+      }
+      
+      // Show immediate feedback
+      showBrowserNotification(
+        'Test Notification Sent', 
+        'A push notification has been sent. You should receive it soon, even if you close the browser.',
+        () => window.focus()
+      );
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to send test notification:', error);
+      throw error;
+    }
+  };
+
   // Check if user is already subscribed to push
   useEffect(() => {
     const checkPushSubscription = async () => {
@@ -256,7 +299,8 @@ export const NotificationProvider = ({ children }) => {
     pushEnabled,
     subscribeToPush,
     unsubscribeFromPush,
-    isSubscribing
+    isSubscribing,
+    sendTestNotification
   };
 
   return (

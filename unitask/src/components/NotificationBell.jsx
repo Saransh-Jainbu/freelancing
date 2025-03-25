@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, BellOff, Check, AlertCircle, Loader } from 'lucide-react';
+import { Bell, BellOff, Check, AlertCircle, Loader, Send, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,10 +14,12 @@ const NotificationBell = () => {
     pushEnabled,
     subscribeToPush,
     unsubscribeFromPush,
-    isSubscribing
+    isSubscribing,
+    sendTestNotification
   } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const notificationRef = useRef(null);
   const navigate = useNavigate();
   
@@ -65,6 +67,19 @@ const NotificationBell = () => {
       await unsubscribeFromPush();
     } else {
       await subscribeToPush();
+    }
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      setIsTesting(true);
+      await sendTestNotification();
+      setTimeout(() => {
+        setIsTesting(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Error testing notification:", error);
+      setIsTesting(false);
     }
   };
   
@@ -158,13 +173,17 @@ const NotificationBell = () => {
               </p>
               
               <div className="flex items-center justify-between mt-2">
-                <span className="text-sm">
+                <span className={`text-sm ${pushEnabled ? 'text-green-400' : 'text-gray-400'}`}>
                   {pushEnabled ? 'Enabled' : 'Disabled'}
                 </span>
                 <button
                   onClick={handleTogglePush}
                   disabled={isSubscribing}
-                  className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg flex items-center gap-2"
+                  className={`px-3 py-2 rounded-lg flex items-center gap-2 ${
+                    isSubscribing ? 'bg-gray-700 cursor-not-allowed' : 
+                    pushEnabled ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20' : 
+                    'bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90'
+                  }`}
                 >
                   {isSubscribing ? (
                     <>
@@ -190,6 +209,13 @@ const NotificationBell = () => {
                   <AlertCircle className="w-5 h-5 flex-shrink-0" />
                   <div>
                     Notifications are blocked in your browser. Please update your browser settings to enable notifications.
+                    <div className="mt-2">
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>Click the lock/info icon in your address bar</li>
+                        <li>Find "Notifications" in the site settings</li>
+                        <li>Set permissions to "Allow"</li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
               )}
@@ -199,9 +225,43 @@ const NotificationBell = () => {
                   <Check className="w-5 h-5 flex-shrink-0" />
                   <div>
                     You will now receive push notifications for orders and messages, even when the browser is closed.
+                    <div className="mt-2">
+                      <button
+                        onClick={handleTestNotification}
+                        disabled={isTesting}
+                        className="flex items-center gap-1.5 text-xs py-1.5 px-2.5 bg-green-500/20 hover:bg-green-500/30 rounded-lg mt-1"
+                      >
+                        {isTesting ? (
+                          <span>Sending...</span>
+                        ) : (
+                          <>
+                            <Play className="w-3 h-3" />
+                            Send test notification
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
+              
+              <div className="border-t border-white/10 mt-3 pt-3">
+                <h4 className="font-medium mb-2">Notification Status</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="bg-white/5 p-2 rounded-lg">
+                    <div className="text-gray-400">Browser</div>
+                    <div className={notificationPermission === 'granted' ? 'text-green-400' : 'text-red-400'}>
+                      {notificationPermission === 'granted' ? 'Allowed' : notificationPermission === 'denied' ? 'Blocked' : 'Not asked'}
+                    </div>
+                  </div>
+                  <div className="bg-white/5 p-2 rounded-lg">
+                    <div className="text-gray-400">Push API</div>
+                    <div className={pushEnabled ? 'text-green-400' : 'text-gray-400'}>
+                      {pushEnabled ? 'Subscribed' : 'Not subscribed'}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

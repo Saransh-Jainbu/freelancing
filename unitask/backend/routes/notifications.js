@@ -237,5 +237,45 @@ async function sendPushNotification(userId, title, message, url, tag) {
   }
 }
 
+// Test notification endpoint
+router.post('/test', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing user ID' 
+      });
+    }
+    
+    const success = await sendPushNotification(
+      userId,
+      'Test Notification',
+      'This is a test notification from UniTask. If you can see this, push notifications are working correctly!',
+      `${process.env.FRONTEND_URL}/dashboard`,
+      'test-notification'
+    );
+    
+    if (success) {
+      res.json({ 
+        success: true, 
+        message: 'Test notification sent successfully' 
+      });
+    } else {
+      res.status(404).json({ 
+        success: false, 
+        message: 'No active subscriptions found for this user' 
+      });
+    }
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending test notification'
+    });
+  }
+});
+
 module.exports = router;
 module.exports.sendPushNotification = sendPushNotification;
