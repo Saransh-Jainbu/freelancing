@@ -53,6 +53,12 @@ app.use(passport.initialize());
 const healthRoutes = require('./routes/health');
 app.use('/api/health', healthRoutes);
 
+// Import routes
+const ordersRoutes = require('./routes/orders');
+
+// Register routes
+app.use('/api/orders', ordersRoutes);
+
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL

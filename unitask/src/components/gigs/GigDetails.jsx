@@ -80,22 +80,34 @@ const GigDetails = () => {
     try {
       const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           gig_id: gig.id,
           client_id: currentUser.id,
           requirements: '',
-          delivery_time: 7, // Default delivery time
-          amount: parseFloat(gig.price.replace('$', ''))
+          delivery_time: 7,
+          amount: parseFloat(gig.price.replace(/[^0-9.]/g, ''))
         })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create order');
+      }
+
       const data = await response.json();
+      
       if (data.success) {
         navigate(`/orders/${data.order.id}`);
+      } else {
+        throw new Error(data.message || 'Failed to create order');
       }
     } catch (error) {
       console.error('Error creating order:', error);
+      // Show error to user
+      setError(error.message || 'Failed to create order. Please try again.');
     }
   };
 
