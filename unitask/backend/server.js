@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
-const { Pool } = require('pg');
 const dotenv = require('dotenv');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -10,6 +9,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const { pool, query } = require('./db');
 
 // Conditionally import Azure Storage
 let azureStorage;
@@ -58,25 +58,6 @@ const ordersRoutes = require('./routes/orders');
 
 // Register routes
 app.use('/api/orders', ordersRoutes);
-
-// Database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-});
-
-// Helper function to execute queries
-const query = async (text, params) => {
-  const start = Date.now();
-  try {
-    const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
-    return res;
-  } catch (error) {
-    console.error('Error executing query', { text, error });
-    throw error;
-  }
-};
 
 // Initialize database tables
 const initDb = async () => {
