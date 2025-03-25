@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContextValue';
 import { API_URL } from '../../constants';
 import { 
   ArrowLeft, Star, Clock, Calendar, CheckCircle, MessageSquare, 
-  Loader, AlertCircle, DollarSign, User, Award, Activity, Share2, ShoppingCart
+  Loader, AlertCircle, DollarSign, User, Award, Activity, Share2, ShoppingCart, Repeat
 } from 'lucide-react';
 
 const GigDetails = () => {
@@ -17,6 +17,7 @@ const GigDetails = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [activePackage, setActivePackage] = useState('basic');
 
   useEffect(() => {
     const loadGigDetails = async () => {
@@ -76,39 +77,15 @@ const GigDetails = () => {
     }
   };
 
-  const handleOrderClick = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/orders`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          gig_id: gig.id,
-          client_id: currentUser.id,
-          requirements: '',
-          delivery_time: 7,
-          amount: parseFloat(gig.price.replace(/[^0-9.]/g, ''))
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create order');
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        navigate(`/orders/${data.order.id}`);
-      } else {
-        throw new Error(data.message || 'Failed to create order');
-      }
-    } catch (error) {
-      console.error('Error creating order:', error);
-      // Show error to user
-      setError(error.message || 'Failed to create order. Please try again.');
+  const handleOrderClick = () => {
+    if (!currentUser) {
+      // Redirect to login if not logged in
+      navigate('/login', { state: { from: `/gig/${gigId}` } });
+      return;
     }
+    
+    // Open the order modal instead of directly creating order
+    setIsOrderModalOpen(true);
   };
 
   if (loading) {
@@ -258,40 +235,76 @@ const GigDetails = () => {
         <div className="lg:col-span-1">
           <div className="sticky top-6">
             <div className="bg-gradient-to-br from-gray-900/80 to-gray-800/50 backdrop-blur-sm rounded-xl border border-white/10 p-6 mb-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold">Package Details</h3>
-                <div className="flex items-center text-xl font-bold text-purple-300">
-                  <DollarSign className="w-5 h-5" />
-                  <span>{gig.price?.replace('$', '') || '0'}</span>
+              {/* Package tabs if multiple packages are available */}
+              {gig.packages && Object.keys(gig.packages).length > 1 && (
+                <div className="mb-4">
+                  <div className="flex border-b border-white/10 mb-4">
+                    {Object.keys(gig.packages).map((pkg) => (
+                      <button
+                        key={pkg}
+                        type="button"
+                        onClick={() => setActivePackage(pkg)}
+                        className={`px-4 py-2 font-medium capitalize transition ${
+                          activePackage === pkg 
+                          ? 'border-b-2 border-purple-500 text-white' 
+                          : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {pkg}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-semibold capitalize">{activePackage} Package</h3>
+                    <div className="flex items-center text-xl font-bold text-purple-300">
+                      <DollarSign className="w-5 h-5" />
+                      <span>{gig.packages[activePackage]?.price || gig.price?.replace('$', '') || '0'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Package features */}
+                  <div className="mb-6 space-y-2">
+                    {gig.packages[activePackage]?.features?.map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        <span className="text-sm">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               
+              {/* Delivery info */}
               <div className="mb-6">
                 <div className="flex items-start gap-3 mb-3">
                   <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium">Delivery Time</p>
-                    <p className="text-sm text-gray-400">2-3 days</p>
+                    <p className="text-sm text-gray-400">
+                      {gig.packages && gig.packages[activePackage]
+                        ? `${gig.packages[activePackage].delivery_days} days`
+                        : '2-3 days'}
+                    </p>
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-3 mb-3">
-                  <Award className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <Repeat className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium">Service Quality</p>
-                    <p className="text-sm text-gray-400">Professional-grade work</p>
+                    <p className="font-medium">Revisions</p>
+                    <p className="text-sm text-gray-400">
+                      {gig.packages && gig.packages[activePackage]
+                        ? `${gig.packages[activePackage].revisions} revision${gig.packages[activePackage].revisions !== 1 ? 's' : ''}`
+                        : 'Up to 2 revisions'}
+                    </p>
                   </div>
                 </div>
                 
-                <div className="flex items-start gap-3">
-                  <Share2 className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Revisions</p>
-                    <p className="text-sm text-gray-400">Up to 2 revisions</p>
-                  </div>
-                </div>
+                {/* ...rest of existing package details... */}
               </div>
               
+              {/* Action buttons */}
               <div className="space-y-3">
                 <button 
                   onClick={handleContactSeller}
@@ -361,8 +374,9 @@ const GigDetails = () => {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`/chat/${gig.conversation_id}`)}
+              onClick={handleContactSeller}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg flex items-center gap-2"
+              disabled={contactLoading || !currentUser || currentUser.id === gig.seller_id}
             >
               <MessageSquare className="w-5 h-5" />
               Contact Seller
@@ -371,7 +385,12 @@ const GigDetails = () => {
           
           <button
             onClick={handleOrderClick}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg flex items-center gap-2"
+            disabled={!currentUser || currentUser.id === gig.seller_id}
+            className={`px-6 py-3 rounded-lg flex items-center gap-2 ${
+              !currentUser || currentUser.id === gig.seller_id
+                ? 'bg-gray-700 cursor-not-allowed'
+                : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90'
+            }`}
           >
             <ShoppingCart className="w-5 h-5" />
             Order Now - {gig.price}
@@ -379,12 +398,11 @@ const GigDetails = () => {
         </div>
       </div>
 
-      {/* Order Confirmation Modal */}
+      {/* Order Modal */}
       {isOrderModalOpen && (
         <OrderModal 
           gig={gig}
           onClose={() => setIsOrderModalOpen(false)}
-          onConfirm={handleOrderClick}
         />
       )}
     </div>

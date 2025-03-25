@@ -10,7 +10,9 @@ router.post('/', async (req, res) => {
       client_id, 
       requirements, 
       delivery_time,
-      amount 
+      amount,
+      package,
+      quantity = 1
     } = req.body;
 
     // Validate required fields
@@ -29,19 +31,27 @@ router.post('/', async (req, res) => {
       const orderResult = await query(
         `INSERT INTO orders (
           gig_id, client_id, freelancer_id, amount,
-          requirements, delivery_time, status
+          requirements, delivery_time, status, package_type, quantity
         )
         SELECT 
-          $1, $2, user_id, $3, $4, $5, 'pending'
+          $1, $2, user_id, $3, $4, $5, 'pending', $6, $7
         FROM gigs WHERE id = $1
         RETURNING *`,
-        [gig_id, client_id, amount, requirements || '', delivery_time || 7]
+        [gig_id, client_id, amount, requirements || '', delivery_time || 7, package || 'basic', quantity]
       );
 
       // Check if order was created
       if (!orderResult.rows[0]) {
         throw new Error('Failed to create order');
       }
+
+      // Update order count on gig
+      await query(
+        `UPDATE gigs 
+         SET orders = orders + 1
+         WHERE id = $1`,
+        [gig_id]
+      );
 
       // Create conversation for order communication
       const conversationResult = await query(
@@ -57,6 +67,17 @@ router.post('/', async (req, res) => {
          VALUES ($1, $2), ($1, (SELECT user_id FROM gigs WHERE id = $3))
          RETURNING conversation_id`,
         [conversationResult.rows[0].id, client_id, gig_id]
+      );
+
+      // Add initial message about order
+      await query(
+        `INSERT INTO messages (conversation_id, sender_id, content)
+         VALUES ($1, $2, $3)`,
+        [
+          conversationResult.rows[0].id, 
+          client_id,
+          `Order #${orderResult.rows[0].id} has been placed! I'm looking forward to working with you.`
+        ]
       );
 
       await query('COMMIT');

@@ -230,6 +230,26 @@ const initDb = async () => {
         completed_at TIMESTAMP WITH TIME ZONE
       )
     `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS gig_packages (
+        id SERIAL PRIMARY KEY,
+        gig_id INTEGER REFERENCES gigs(id) ON DELETE CASCADE,
+        package_type VARCHAR(50) NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
+        delivery_days INTEGER NOT NULL,
+        revisions INTEGER DEFAULT 0,
+        features JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(gig_id, package_type)
+      )
+    `);
+
+    await query(`
+      ALTER TABLE orders 
+      ADD COLUMN IF NOT EXISTS package_type VARCHAR(50) DEFAULT 'basic',
+      ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1
+    `);
     
     console.log('Database initialized successfully');
   } catch (error) {

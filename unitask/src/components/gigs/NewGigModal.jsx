@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { X, Plus, Loader, Image, Camera } from 'lucide-react';
+import { X, Plus, Loader, Image, Camera, PlusCircle, Trash2, Clock, Zap, Repeat, CheckCircle } from 'lucide-react';
 import { createGig } from '../../api/gigs';
 import { uploadImage } from '../../api/upload';
 import { API_URL } from '../../api/constants';
@@ -18,6 +18,27 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
   const [imageFile, setImageFile] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('basic');
+  const [packages, setPackages] = useState({
+    basic: {
+      price: '',
+      delivery_days: 7,
+      revisions: 1,
+      features: ['Basic design', 'Source file']
+    },
+    standard: {
+      price: '',
+      delivery_days: 5,
+      revisions: 3,
+      features: ['Standard design', 'Source file', 'Responsive design']
+    },
+    premium: {
+      price: '',
+      delivery_days: 3,
+      revisions: 5,
+      features: ['Premium design', 'Source file', 'Responsive design', 'Priority support']
+    }
+  });
 
   if (!isOpen) return null;
 
@@ -45,6 +66,55 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
     reader.readAsDataURL(file);
     
     setImageFile(file);
+  };
+
+  const handlePackageChange = (packageType, field, value) => {
+    setPackages(prev => ({
+      ...prev,
+      [packageType]: {
+        ...prev[packageType],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleAddFeature = (packageType) => {
+    const newFeature = '';
+    setPackages(prev => ({
+      ...prev,
+      [packageType]: {
+        ...prev[packageType],
+        features: [...prev[packageType].features, newFeature]
+      }
+    }));
+  };
+
+  const handleFeatureChange = (packageType, index, value) => {
+    setPackages(prev => {
+      const newFeatures = [...prev[packageType].features];
+      newFeatures[index] = value;
+      return {
+        ...prev,
+        [packageType]: {
+          ...prev[packageType],
+          features: newFeatures
+        }
+      };
+    });
+  };
+
+  const handleRemoveFeature = (packageType, index) => {
+    setPackages(prev => {
+      const newFeatures = [...prev[packageType].features];
+      newFeatures.splice(index, 1);
+      return {
+        ...prev,
+        [packageType]: {
+          ...prev[packageType],
+          features: newFeatures
+        }
+      };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -112,7 +182,7 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
       
-      <div className="relative bg-gray-900 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-gray-900 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-gray-900 p-4 border-b border-white/10 flex items-center justify-between z-10">
           <h2 className="text-xl font-bold">Create New Gig</h2>
           <button 
@@ -130,7 +200,7 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
             </div>
           )}
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Image upload area */}
             <div>
               <label className="block text-sm text-gray-400 mb-1">
@@ -232,6 +302,119 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
                 rows="5"
                 className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
+            </div>
+
+            {/* Packages Section */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold">Packages</h3>
+              
+              {/* Package Tabs */}
+              <div className="flex border-b border-white/10">
+                {['basic', 'standard', 'premium'].map((pkg) => (
+                  <button
+                    key={pkg}
+                    type="button"
+                    onClick={() => setActiveTab(pkg)}
+                    className={`px-6 py-3 font-medium capitalize transition ${
+                      activeTab === pkg 
+                      ? 'border-b-2 border-purple-500 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {pkg}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Active Package Form */}
+              <div className="border border-white/10 rounded-lg p-5">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-gray-400 mb-2">Price ($)</label>
+                    <input
+                      type="number"
+                      value={packages[activeTab].price}
+                      onChange={(e) => handlePackageChange(activeTab, 'price', e.target.value)}
+                      className="w-full px-4 py-2 bg-black/30 border border-white/10 rounded-lg"
+                      placeholder="19.99"
+                      min="1"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-gray-400 mb-2">Delivery Time (days)</label>
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        value={packages[activeTab].delivery_days}
+                        onChange={(e) => handlePackageChange(activeTab, 'delivery_days', parseInt(e.target.value) || 1)}
+                        className="w-full px-4 py-2 bg-black/30 border border-white/10 rounded-lg"
+                        min="1"
+                        max="30"
+                        required
+                      />
+                      <Clock className="w-5 h-5 text-gray-400 -ml-8" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-gray-400 mb-2">Number of Revisions</label>
+                  <div className="flex items-center">
+                    <input
+                      type="number"
+                      value={packages[activeTab].revisions}
+                      onChange={(e) => handlePackageChange(activeTab, 'revisions', parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-2 bg-black/30 border border-white/10 rounded-lg"
+                      min="0"
+                      max="20"
+                    />
+                    <Repeat className="w-5 h-5 text-gray-400 -ml-8" />
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-gray-400">Features</label>
+                    <button
+                      type="button"
+                      onClick={() => handleAddFeature(activeTab)}
+                      className="text-purple-400 flex items-center gap-1 text-sm"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      Add Feature
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {packages[activeTab].features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        <input
+                          type="text"
+                          value={feature}
+                          onChange={(e) => handleFeatureChange(activeTab, idx, e.target.value)}
+                          className="flex-1 px-3 py-2 bg-black/30 border border-white/10 rounded-lg"
+                          placeholder="e.g. Logo in PNG format"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFeature(activeTab, idx)}
+                          className="p-2 text-red-400 hover:bg-white/5 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-gray-400 italic">
+                * Clients will choose from these packages when ordering your service.
+              </div>
             </div>
             
             <div className="pt-4 flex justify-end gap-3">

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { API_URL } from '../../api/constants';
+import { Link } from 'react-router-dom';
 
 const OrdersPage = () => {
   const { currentUser } = useAuth();
@@ -90,9 +91,9 @@ const OrdersPage = () => {
           {/* Tab switcher */}
           <div className="bg-gray-900 p-1 rounded-lg">
             <button
-              onClick={() => setActiveTab('buyer')}
+              onClick={() => setActiveTab('client')}
               className={`px-4 py-2 rounded-lg ${
-                activeTab === 'buyer' 
+                activeTab === 'client' 
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600' 
                   : 'hover:bg-white/5'
               }`}
@@ -145,55 +146,91 @@ const OrdersPage = () => {
 
         {/* Orders list */}
         <div className="space-y-4">
-          {filteredOrders.map(order => (
-            <div
-              key={order.id}
-              className="bg-gray-900 border border-white/10 rounded-lg p-6"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {order.gig_title}
-                  </h3>
-                  <p className="text-gray-400">
-                    {activeTab === 'buyer' 
-                      ? `Freelancer: ${order.freelancer_name}`
-                      : `Client: ${order.client_name}`}
-                  </p>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+            </div>
+          ) : filteredOrders.length > 0 ? (
+            filteredOrders.map(order => (
+              <Link
+                to={`/orders/${order.id}`}
+                key={order.id}
+                className="block bg-gray-900 border border-white/10 rounded-lg p-6 hover:bg-gray-800/80 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {order.gig_title}
+                    </h3>
+                    <p className="text-gray-400">
+                      {activeTab === 'client' 
+                        ? `Freelancer: ${order.freelancer_name}`
+                        : `Client: ${order.client_name}`}
+                    </p>
+                    <div className="mt-2 text-sm text-gray-400">
+                      Package: <span className="text-white capitalize">{order.package_type || 'Basic'}</span>
+                      {order.quantity > 1 && <span className="ml-2">× {order.quantity}</span>}
+                    </div>
+                  </div>
+                  {getStatusBadge(order.status)}
                 </div>
-                {getStatusBadge(order.status)}
-              </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div>
-                  <p className="text-gray-400 text-sm">Order Date</p>
-                  <p>{format(new Date(order.created_at), 'MMM d, yyyy')}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Delivery Time</p>
-                  <p>{order.delivery_time} days</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Amount</p>
-                  <p className="flex items-center gap-1">
-                    <DollarSign className="w-4 h-4" />
-                    {order.amount}
-                  </p>
-                </div>
-              </div>
-
-              {order.status === 'completed' && order.rating && (
-                <div className="mt-4 pt-4 border-t border-white/10">
-                  <div className="flex items-center gap-2">
-                    <Star className="w-5 h-5 text-yellow-500" />
-                    <span className="font-medium">{order.rating}</span>
-                    <span className="text-gray-400">|</span>
-                    <p className="text-gray-400">{order.review}</p>
+                <div className="grid grid-cols-4 gap-4 mb-4">
+                  <div>
+                    <p className="text-gray-400 text-sm">Order Date</p>
+                    <p>{format(new Date(order.created_at), 'MMM d, yyyy')}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Delivery Date</p>
+                    <p>
+                      {order.delivery_date 
+                        ? format(new Date(order.delivery_date), 'MMM d, yyyy')
+                        : `${order.delivery_time || 7} days`}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Amount</p>
+                    <p className="flex items-center gap-1">
+                      <DollarSign className="w-4 h-4" />
+                      {order.amount}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Order ID</p>
+                    <p>#{order.id}</p>
                   </div>
                 </div>
+
+                {order.status === 'completed' && order.rating && (
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-5 h-5 text-yellow-500" />
+                      <span className="font-medium">{order.rating}</span>
+                      <span className="text-gray-400">|</span>
+                      <p className="text-gray-400">{order.review}</p>
+                    </div>
+                  </div>
+                )}
+              </Link>
+            ))
+          ) : (
+            <div className="bg-gray-900 border border-white/10 rounded-lg p-8 text-center">
+              <h3 className="text-xl font-medium mb-2">No orders found</h3>
+              <p className="text-gray-400 mb-6">
+                {activeTab === 'client' 
+                  ? 'You haven\'t placed any orders yet.' 
+                  : 'You haven\'t received any orders yet.'}
+              </p>
+              {activeTab === 'client' && (
+                <Link 
+                  to="/marketplace"
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg inline-block"
+                >
+                  Explore Marketplace
+                </Link>
               )}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
