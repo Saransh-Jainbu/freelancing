@@ -7,6 +7,7 @@ import {
   ArrowLeft, Star, Clock, Calendar, CheckCircle, MessageSquare, 
   Loader, AlertCircle, DollarSign, User, Award, Activity, Share2, ShoppingCart, Repeat
 } from 'lucide-react';
+import OrderModal from '../orders/OrderModal'; // Add this import
 
 const GigDetails = () => {
   const { gigId } = useParams();
