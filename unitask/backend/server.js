@@ -55,9 +55,12 @@ app.use('/api/health', healthRoutes);
 
 // Import routes
 const ordersRoutes = require('./routes/orders');
+const notificationsRoutes = require('./routes/notifications');
+const { sendPushNotification } = require('./routes/notifications');
 
 // Register routes
 app.use('/api/orders', ordersRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Initialize database tables
 const initDb = async () => {
@@ -250,6 +253,34 @@ const initDb = async () => {
       ADD COLUMN IF NOT EXISTS package_type VARCHAR(50) DEFAULT 'basic',
       ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1
     `);
+
+    // Add notification table
+    await query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        reference_id INTEGER,
+        reference_type VARCHAR(50),
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add push subscriptions table
+    await query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        endpoint VARCHAR(500) UNIQUE NOT NULL,
+        p256dh VARCHAR(200) NOT NULL,
+        auth VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
     console.log('Database initialized successfully');
   } catch (error) {
@@ -264,6 +295,14 @@ initDb();
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
+  
+  // Associate user ID with socket for notifications
+  socket.on('register-user', (userId) => {
+    if (userId) {
+      console.log(`User ${userId} registered with socket ${socket.id}`);
+      socket.join(`user-${userId}`);
+    }
+  });
   
   // Join conversation room
   socket.on('join-conversation', (conversationId) => {
@@ -294,6 +333,68 @@ io.on('connection', (socket) => {
       
       // Emit to all users in the conversation
       io.to(`conversation-${conversationId}`).emit('new-message', newMessage);
+      
+      // Send notification to other participants
+      const participantsResult = await query(
+        `SELECT user_id 
+         FROM conversation_participants 
+         WHERE conversation_id = $1 AND user_id != $2`,
+        [conversationId, senderId]
+      );
+      
+      // Get sender name
+      const senderResult = await query(
+        `SELECT display_name FROM users WHERE id = $1`,
+        [senderId]
+      );
+      
+      const senderName = senderResult.rows[0]?.display_name || 'Someone';
+      
+      // Get conversation title or participant names
+      const conversationResult = await query(
+        `SELECT gig_title FROM conversations WHERE id = $1`,
+        [conversationId]
+      );
+      
+      let conversationTitle = conversationResult.rows[0]?.gig_title || 'Chat';
+      
+      // Create notifications for each participant
+      for (const participant of participantsResult.rows) {
+        // Create notification in database
+        await query(
+          `INSERT INTO notifications (
+            user_id, type, title, message, reference_id, reference_type
+          ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            participant.user_id,
+            'message',
+            `New message from ${senderName}`,
+            content.length > 50 ? content.substring(0, 47) + '...' : content,
+            conversationId,
+            'conversation'
+          ]
+        );
+        
+        // Send notification via WebSocket
+        io.to(`user-${participant.user_id}`).emit('notification', {
+          type: 'message',
+          title: `New message from ${senderName}`,
+          message: content.length > 50 ? content.substring(0, 47) + '...' : content,
+          reference_id: conversationId,
+          reference_type: 'conversation',
+          sender_name: senderName,
+          conversation_title: conversationTitle
+        });
+
+        // Send push notification (will only go to users who have subscribed)
+        sendPushNotification(
+          participant.user_id,
+          `New message from ${senderName}`,
+          content.length > 50 ? content.substring(0, 47) + '...' : content,
+          `${FRONTEND_URL}/chat/${conversationId}`,
+          `conversation-${conversationId}`
+        );
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       socket.emit('message-error', { error: 'Failed to send message' });
