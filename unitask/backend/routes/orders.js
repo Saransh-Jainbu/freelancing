@@ -118,6 +118,43 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
+// Get single order by ID
+router.get('/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const result = await query(
+      `SELECT 
+        o.*,
+        g.title as gig_title,
+        g.price as gig_price,
+        u.display_name as client_name,
+        f.display_name as freelancer_name,
+        r.rating,
+        r.comment as review
+      FROM orders o
+      JOIN gigs g ON o.gig_id = g.id
+      JOIN users u ON o.client_id = u.id
+      JOIN users f ON o.freelancer_id = f.id
+      LEFT JOIN reviews r ON o.id = r.order_id
+      WHERE o.id = $1`,
+      [orderId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found' 
+      });
+    }
+
+    res.json({ success: true, order: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Update order status
 router.put('/:orderId/status', async (req, res) => {
   try {
