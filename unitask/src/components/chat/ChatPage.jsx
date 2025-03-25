@@ -8,6 +8,8 @@ import ConversationList from './ConversationList';
 import ChatHeader from './ChatHeader';
 import ChatComponent from './Chat';
 import { API_URL } from '../../api/constants';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import MobileChatView from './MobileChatView';
 
 const ChatPage = () => {
   const { currentUser } = useAuth();
@@ -23,6 +25,8 @@ const ChatPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const [messageInput, setMessageInput] = useState('');
   
   // Initialize socket connection
   useEffect(() => {
@@ -175,6 +179,23 @@ const ChatPage = () => {
           </button>
         </div>
       </div>
+    );
+  }
+
+  // Modified render logic for mobile
+  if (isMobile && activeConversation) {
+    return (
+      <MobileChatView
+        activeConversation={activeConversation}
+        messages={messages}
+        currentUser={currentUser}
+        onSendMessage={handleSendMessage}
+        onBack={() => navigate('/chat')}
+        messageInput={messageInput}
+        setMessageInput={setMessageInput}
+        typingUsers={typingUsers}
+        participants={getActiveParticipants()}
+      />
     );
   }
 
