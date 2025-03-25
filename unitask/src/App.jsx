@@ -15,6 +15,7 @@ import OAuthCallback from './components/OAuthCallback';
 import LandingPage from './components/LandingPage';
 import MarketplacePage from './components/marketplace';
 import GigDetails from "./components/gigs/GigDetails";
+import OrdersPage from './components/orders/OrdersPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -105,6 +106,13 @@ const AppRoutes = () => {
       <Route path="/gig/:gigId" element={
         <ProtectedRoute>
           <GigDetails />
+        </ProtectedRoute>
+      } />
+      
+      {/* Orders route */}
+      <Route path="/orders" element={
+        <ProtectedRoute>
+          <OrdersPage />
         </ProtectedRoute>
       } />
       

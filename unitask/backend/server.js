@@ -185,6 +185,65 @@ const initDb = async () => {
       ADD COLUMN IF NOT EXISTS gig_title VARCHAR(255)
     `);
 
+    // Orders table
+    await query(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        gig_id INTEGER REFERENCES gigs(id),
+        client_id INTEGER REFERENCES users(id),
+        freelancer_id INTEGER REFERENCES users(id),
+        status VARCHAR(50) DEFAULT 'pending',
+        amount DECIMAL(10,2) NOT NULL,
+        requirements TEXT,
+        delivery_time INTEGER,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP WITH TIME ZONE,
+        payment_status VARCHAR(50) DEFAULT 'unpaid',
+        payment_details JSONB
+      )
+    `);
+
+    // Order updates/revisions
+    await query(`
+      CREATE TABLE IF NOT EXISTS order_updates (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id),
+        sender_id INTEGER REFERENCES users(id),
+        content TEXT,
+        attachment_url TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Reviews table
+    await query(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id),
+        gig_id INTEGER REFERENCES gigs(id),
+        reviewer_id INTEGER REFERENCES users(id),
+        freelancer_id INTEGER REFERENCES users(id),
+        rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Order milestones/deliverables
+    await query(`
+      CREATE TABLE IF NOT EXISTS order_milestones (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id),
+        title VARCHAR(255),
+        description TEXT,
+        amount DECIMAL(10,2),
+        due_date TIMESTAMP WITH TIME ZONE,
+        status VARCHAR(50) DEFAULT 'pending',
+        completed_at TIMESTAMP WITH TIME ZONE
+      )
+    `);
+    
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Error initializing database', error);
