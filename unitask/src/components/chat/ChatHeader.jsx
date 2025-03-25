@@ -10,42 +10,50 @@ const ChatHeader = ({ participants, onToggleSidebar, showSidebarToggle, onDelete
   const [showDropdown, setShowDropdown] = useState(false);
   
   return (
-    <div className="p-4 border-b border-white/10 flex items-center gap-3">
-      {showSidebarToggle && (
-        <button 
-          onClick={onToggleSidebar}
-          className="p-2 rounded-lg hover:bg-white/5"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-      )}
+    <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-gray-900/95 backdrop-blur-sm">
+      {/* Mobile back button */}
+      <button 
+        onClick={onToggleSidebar}
+        className="md:hidden p-2 rounded-lg hover:bg-white/5"
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </button>
       
-      <img 
-        src={displayParticipant.avatar_url || "/api/placeholder/40/40"} 
-        alt="Avatar" 
-        className="w-10 h-10 rounded-full object-cover"
-      />
+      {/* Avatar */}
+      <div className="flex-shrink-0">
+        <img 
+          src={displayParticipant.avatar_url || "/default-avatar.png"} 
+          alt="Avatar" 
+          className="w-10 h-10 rounded-full object-cover"
+        />
+      </div>
       
-      <div className="flex-1">
-        <h3 className="font-medium">
+      {/* User info */}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-medium truncate">
           {displayParticipant.display_name || 'Unknown'}
-          {multipleParticipants && <span className="text-gray-400 text-sm"> + {participants.length - 1} others</span>}
+          {multipleParticipants && (
+            <span className="text-gray-400 text-sm ml-1">
+              +{participants.length - 1}
+            </span>
+          )}
         </h3>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-400 truncate">
           {displayParticipant.status || 'Online'}
         </p>
       </div>
       
+      {/* Actions dropdown */}
       <div className="relative">
         <button 
-          className="p-2 rounded-lg hover:bg-white/5"
           onClick={() => setShowDropdown(!showDropdown)}
+          className="p-2 rounded-lg hover:bg-white/5"
         >
           <MoreVertical className="w-5 h-5" />
         </button>
         
         {showDropdown && (
-          <div className="absolute right-0 mt-2 w-48 bg-gray-900 rounded-lg shadow-lg border border-white/10 py-1 z-50">
+          <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-gray-900/95 backdrop-blur-sm border border-white/10 py-1 z-50">
             <Link
               to={`/profile/${displayParticipant.id}`}
               className="px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"

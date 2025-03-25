@@ -179,8 +179,6 @@ const ChatPage = () => {
   }
 
   return (
-    // Change to take full height of container without the navbar
-    // Remove the mt-16 since we already handled this in the ProtectedRoute component
     <div className="h-[calc(100vh-64px)] bg-black text-white overflow-hidden">
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
@@ -259,12 +257,20 @@ const ChatPage = () => {
         </div>
       )}
     
-      <div className="h-full flex overflow-hidden">
-        {/* Conversations sidebar */}
+      <div className="h-full flex relative">
+        {/* Sidebar */}
         <div 
-          className={`border-r border-white/10 bg-gray-900 ${
-            showSidebar ? 'w-80' : 'w-0'
-          } transition-all duration-300 overflow-hidden flex flex-col h-full`}
+          className={`
+            ${showSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} 
+            ${showSidebar ? 'w-full md:w-80' : 'w-0 md:w-80'}
+            transition-all duration-300 
+            absolute md:relative 
+            inset-y-0 left-0 
+            z-30 md:z-auto
+            bg-gray-900 
+            border-r border-white/10
+            flex flex-col
+          `}
         >
           {/* Sidebar Header - Fixed */}
           <div className="p-4 border-b border-white/10 flex justify-between items-center flex-shrink-0">
@@ -296,38 +302,49 @@ const ChatPage = () => {
         </div>
 
         {/* Chat area - Fixed container */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col w-full md:w-auto">
           {error && (
             <div className="bg-red-500/10 text-red-500 p-4 text-center flex-shrink-0">
               {error}
             </div>
           )}
           {activeConversation ? (
-            <div className="h-full flex flex-col overflow-hidden">
-              {/* Chat Header */}
-              <div className="flex-shrink-0">
-                <ChatHeader
-                  participants={getActiveParticipants()}
-                  onToggleSidebar={() => setShowSidebar(prev => !prev)}
-                  showSidebarToggle={!showSidebar}
-                  onDeleteChat={handleDeleteChat}
-                />
-              </div>
+            <>
+              <ChatHeader
+                participants={getActiveParticipants()}
+                onToggleSidebar={() => setShowSidebar(true)}
+                showSidebarToggle={!showSidebar}
+                onDeleteChat={handleDeleteChat}
+              />
               
-              {/* Chat Component Container */}
-              <div className="flex-1 overflow-hidden relative">
+              {/* Messages area */}
+              <div className="flex-1 overflow-hidden">
                 <ChatComponent />
               </div>
-            </div>
+              
+              {/* Input area */}
+              <div className="p-4 border-t border-white/10">
+                {/* ...existing input code... */}
+              </div>
+            </>
           ) : (
-            <div className="h-full flex items-center justify-center">
+            <div className="h-full flex items-center justify-center p-4">
               <div className="text-center">
                 <h3 className="text-xl font-semibold mb-2">No Conversation Selected</h3>
-                <p className="text-gray-400">
+                <p className="text-gray-400 mb-4">
                   {conversations.length > 0 
                     ? 'Select a conversation from the sidebar' 
                     : 'Start by creating a new conversation'}
                 </p>
+                <button
+                  onClick={() => {
+                    setIsNewChatModalOpen(true);
+                    setShowSidebar(false);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  Start New Chat
+                </button>
               </div>
             </div>
           )}

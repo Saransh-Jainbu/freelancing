@@ -39,19 +39,19 @@ const Navigation = () => {
   // Close profile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (isProfileMenuOpen) {
-        setIsProfileMenuOpen(false);
+      const dropdownButton = document.getElementById('profile-dropdown');
+      const dropdownMenu = document.getElementById('profile-menu');
+      
+      if (dropdownButton && dropdownMenu) {
+        if (!dropdownButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
+          setIsProfileMenuOpen(false);
+        }
       }
     };
     
-    // Add event listener when component mounts
     document.addEventListener('mousedown', handleClickOutside);
-    
-    // Remove event listener when component unmounts
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isProfileMenuOpen]);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -177,21 +177,21 @@ const Navigation = () => {
           {/* Profile dropdown */}
           <div className="hidden md:flex md:items-center">
             <div className="ml-3 relative">
-              <div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsProfileMenuOpen(!isProfileMenuOpen);
-                  }}
-                  className="flex items-center gap-2 text-sm bg-white/5 border border-white/10 rounded-full px-3 py-2 hover:bg-white/10 focus:outline-none"
-                >
-                  {getAvatarContent()}
-                  <span className="hidden md:block">{getDisplayName()}</span>
-                  <ChevronDown size={16} />
-                </button>
-              </div>
+              <button
+                id="profile-dropdown"
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="flex items-center gap-2 text-sm bg-white/5 border border-white/10 rounded-full px-3 py-2 hover:bg-white/10 focus:outline-none"
+              >
+                {getAvatarContent()}
+                <span className="hidden md:block">{getDisplayName()}</span>
+                <ChevronDown size={16} />
+              </button>
+
               {isProfileMenuOpen && (
-                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-gray-900 border border-white/10 ring-1 ring-black ring-opacity-5">
+                <div
+                  id="profile-menu"
+                  className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-gray-900/95 backdrop-blur-sm border border-white/10 py-1 z-50"
+                >
                   <Link
                     to="/profile"
                     className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
@@ -235,62 +235,75 @@ const Navigation = () => {
       
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.path}
-                className={`block px-3 py-2 rounded-md text-base font-medium flex items-center gap-3 ${
-                  isActive(item.path)
-                    ? 'bg-white/10 text-white'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <item.icon size={18} />
-                {item.name}
-              </Link>
-            ))}
-          </div>
-          <div className="pt-4 pb-3 border-t border-white/5">
-            <div className="flex items-center px-5">
-              <div className="flex-shrink-0">
-                {getMobileAvatarContent()}
-              </div>
-              <div className="ml-3">
-                <div className="text-base font-medium text-white">
-                  {getDisplayName()}
-                </div>
-                <div className="text-sm font-medium text-gray-400">
-                  {currentUser?.email || 'user@example.com'}
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 px-2 space-y-1">
-              <Link
-                to="/profile"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <User size={18} />
-                Your Profile
-              </Link>
-              <Link
-                to="/settings"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <Settings size={18} />
-                Settings
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-400 hover:bg-white/5 flex items-center gap-3"
-              >
-                <LogOut size={18} />
-                Sign out
+        <div className="md:hidden fixed inset-0 z-40">
+          {/* Dark overlay */}
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)} />
+          
+          {/* Menu content */}
+          <div className="fixed inset-y-0 right-0 w-64 bg-gray-900 border-l border-white/10">
+            <div className="p-4 border-b border-white/10 flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Menu</h2>
+              <button onClick={() => setIsMenuOpen(false)} className="p-2">
+                <X size={24} />
               </button>
+            </div>
+            
+            <div className="px-2 py-3 space-y-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.path}
+                  className={`block px-3 py-2 rounded-md text-base font-medium flex items-center gap-3 ${
+                    isActive(item.path)
+                      ? 'bg-white/10 text-white'
+                      : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <item.icon size={18} />
+                  {item.name}
+                </Link>
+              ))}
+            </div>
+            <div className="pt-4 pb-3 border-t border-white/5">
+              <div className="flex items-center px-5">
+                <div className="flex-shrink-0">
+                  {getMobileAvatarContent()}
+                </div>
+                <div className="ml-3">
+                  <div className="text-base font-medium text-white">
+                    {getDisplayName()}
+                  </div>
+                  <div className="text-sm font-medium text-gray-400">
+                    {currentUser?.email || 'user@example.com'}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 px-2 space-y-1">
+                <Link
+                  to="/profile"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <User size={18} />
+                  Your Profile
+                </Link>
+                <Link
+                  to="/settings"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Settings size={18} />
+                  Settings
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-400 hover:bg-white/5 flex items-center gap-3"
+                >
+                  <LogOut size={18} />
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,11 +1,19 @@
 const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require('@azure/storage-blob');
 const { v4: uuidv4 } = require('uuid');
+require('dotenv').config();
 
 // Azure Storage configuration
 const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
 const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'userimages';
 const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
 const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY;
+
+// Add error handling for missing connection string
+if (!connectionString) {
+  console.error('Azure Storage Connection String is not defined in environment variables');
+  // Provide a fallback or throw an error based on your needs
+  throw new Error('AZURE_STORAGE_CONNECTION_STRING must be defined in environment variables');
+}
 
 // Create BlobServiceClient
 const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);

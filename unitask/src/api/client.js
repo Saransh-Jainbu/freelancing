@@ -1,6 +1,5 @@
-// Create a configured API client to use throughout the app
-// DO NOT use any environment variables - hardcode the production URL
-const API_URL = 'https://unitask-backend.onrender.com';
+// Use the constants directly
+import { API_URL } from './constants';
 
 console.log('[API Client] Using API URL:', API_URL);
 

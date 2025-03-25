@@ -10,7 +10,15 @@ const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const { uploadToAzure, deleteFromAzure } = require('./services/azureStorage');
+
+// Conditionally import Azure Storage
+let azureStorage;
+try {
+  azureStorage = require('./services/azureStorage');
+} catch (error) {
+  console.warn('Azure Storage is not configured. File upload features will be disabled.');
+  azureStorage = null;
+}
 
 // Load environment variables
 dotenv.config();
@@ -1232,6 +1240,12 @@ const upload = multer({
 
 // Image upload endpoint with Azure Blob Storage ONLY
 app.post('/api/upload/image', upload.single('image'), async (req, res) => {
+  if (!azureStorage) {
+    return res.status(503).json({ 
+      success: false, 
+      message: 'File upload is currently unavailable' 
+    });
+  }
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -1240,7 +1254,7 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
     console.log('[Server] Uploading image to Azure:', req.file.originalname);
     
     // Upload to Azure Blob Storage
-    const uploadResult = await uploadToAzure(
+    const uploadResult = await azureStorage.uploadToAzure(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype
@@ -1262,7 +1276,7 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
       console.log('[Server] Container already exists - this is not actually an error');
       // Despite the error, we still want to upload the file
       try {
-        const uploadResult = await uploadToAzure(
+        const uploadResult = await azureStorage.uploadToAzure(
           req.file.buffer,
           req.file.originalname,
           req.file.mimetype,
@@ -1293,6 +1307,12 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
 
 // Update profile with avatar
 app.put('/api/profile/:userId/avatar', async (req, res) => {
+  if (!azureStorage) {
+    return res.status(503).json({ 
+      success: false, 
+      message: 'File upload is currently unavailable' 
+    });
+  }
   try {
     const { userId } = req.params;
     const { avatarUrl, oldAvatarUrl } = req.body;
@@ -1308,7 +1328,7 @@ app.put('/api/profile/:userId/avatar', async (req, res) => {
     if (oldAvatarUrl && oldAvatarUrl.includes('blob.core.windows.net')) {
       try {
         console.log(`[Server] Attempting to delete old avatar: ${oldAvatarUrl}`);
-        await deleteFromAzure(oldAvatarUrl);
+        await azureStorage.deleteFromAzure(oldAvatarUrl);
         console.log(`[Server] Old avatar deleted successfully`);
       } catch (deleteError) {
         console.warn('[Server] Failed to delete old avatar, continuing anyway:', deleteError);
@@ -1330,6 +1350,12 @@ app.put('/api/profile/:userId/avatar', async (req, res) => {
 
 // Add to gigs endpoints - upload gig image with Azure only
 app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
+  if (!azureStorage) {
+    return res.status(503).json({ 
+      success: false, 
+      message: 'File upload is currently unavailable' 
+    });
+  }
   try {
     const { gigId } = req.params;
     
@@ -1340,7 +1366,7 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
     console.log(`[Server] Uploading gig image for gig ${gigId}`);
     
     // Upload to Azure Blob Storage
-    const uploadResult = await uploadToAzure(
+    const uploadResult = await azureStorage.uploadToAzure(
       req.file.buffer,
       req.file.originalname,
       req.file.mimetype
@@ -1364,7 +1390,7 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
     if (oldImageUrl && oldImageUrl.includes('blob.core.windows.net')) {
       try {
         console.log(`[Server] Attempting to delete old gig image: ${oldImageUrl}`);
-        await deleteFromAzure(oldImageUrl);
+        await azureStorage.deleteFromAzure(oldImageUrl);
         console.log(`[Server] Old gig image deleted successfully`);
       } catch (deleteError) {
         console.warn('[Server] Failed to delete old gig image, continuing anyway:', deleteError);
