@@ -12,23 +12,30 @@ const ConversationList = ({
       {conversations.map((conversation) => {
         // Get the other participant
         const otherParticipants = conversation.participants || [];
-        const displayParticipant = otherParticipants[0] || {};
+        const displayParticipant = otherParticipants.find(p => p.id !== currentUserId) || {};
         
         return (
-          <div
+          <button
             key={conversation.id}
             onClick={() => onSelectConversation(conversation)}
-            className={`p-4 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${
+            className={`w-full p-4 hover:bg-white/5 transition-colors flex items-center gap-3 ${
               conversation.id === activeConversationId ? 'bg-white/10' : ''
             }`}
           >
             {/* Avatar */}
-            <div className="relative">
-              <img 
-                src={displayParticipant.avatar_url || "/api/placeholder/40/40"} 
-                alt="Avatar" 
-                className="w-12 h-12 rounded-full object-cover"
-              />
+            <div className="relative flex-shrink-0">
+              {displayParticipant.avatar_url ? (
+                <img 
+                  src={displayParticipant.avatar_url} 
+                  alt={displayParticipant.display_name || 'User'}
+                  className="w-12 h-12 rounded-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
+                  {displayParticipant.display_name?.charAt(0) || '?'}
+                </div>
+              )}
               {conversation.unread_count > 0 && (
                 <div className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                   {conversation.unread_count}
@@ -37,10 +44,12 @@ const ConversationList = ({
             </div>
             
             {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex justify-between">
-                <h3 className="font-medium truncate">{displayParticipant.display_name || 'Unknown'}</h3>
-                <span className="text-xs text-gray-400">
+            <div className="flex-1 min-w-0 text-left">
+              <div className="flex justify-between items-baseline">
+                <h3 className="font-medium truncate">
+                  {displayParticipant.display_name || 'Unknown'}
+                </h3>
+                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
                   {formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true })}
                 </span>
               </div>
@@ -48,7 +57,7 @@ const ConversationList = ({
                 {conversation.last_message || 'No messages yet'}
               </p>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
