@@ -1,0 +1,42 @@
+import { useState } from 'react';
+import MobileChatList from './MobileChatList';
+import MobileChatView from './MobileChatView';
+import { useNavigate, useParams } from 'react-router-dom';
+
+const MobileChat = ({ conversations, currentUser, onSendMessage, onStartChat }) => {
+  const { conversationId } = useParams();
+  const navigate = useNavigate();
+  const [view, setView] = useState(conversationId ? 'chat' : 'list');
+
+  const handleBack = () => {
+    setView('list');
+    navigate('/chat');
+  };
+
+  const handleSelectChat = (conversation) => {
+    setView('chat');
+    navigate(`/chat/${conversation.id}`);
+  };
+
+  return (
+    <div className="h-[calc(100vh-64px)] bg-black">
+      {view === 'list' ? (
+        <MobileChatList 
+          conversations={conversations}
+          currentUser={currentUser}
+          onSelectChat={handleSelectChat}
+          onNewChat={() => onStartChat()}
+        />
+      ) : (
+        <MobileChatView 
+          conversationId={conversationId}
+          currentUser={currentUser}
+          onBack={handleBack}
+          onSendMessage={onSendMessage}
+        />
+      )}
+    </div>
+  );
+};
+
+export default MobileChat;
