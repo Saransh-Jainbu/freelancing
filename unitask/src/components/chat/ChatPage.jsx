@@ -27,6 +27,7 @@ const ChatPage = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [messageInput, setMessageInput] = useState('');
+  const [mobileView, setMobileView] = useState('list'); // 'list' or 'chat'
   
   // Initialize socket connection
   useEffect(() => {
@@ -165,6 +166,20 @@ const ChatPage = () => {
     return activeConversation.participants.filter(p => p.id !== currentUser?.id);
   };
 
+  // Modify conversation selection handler
+  const handleSelectConversation = (conversation) => {
+    navigate(`/chat/${conversation.id}`);
+    if (isMobile) {
+      setMobileView('chat');
+    }
+  };
+
+  // Handle mobile back button
+  const handleMobileBack = () => {
+    setMobileView('list');
+    navigate('/chat');
+  };
+
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -182,23 +197,144 @@ const ChatPage = () => {
     );
   }
 
-  // Modified render logic for mobile
-  if (isMobile && activeConversation) {
+  // Mobile render logic
+  if (isMobile) {
     return (
-      <MobileChatView
-        activeConversation={activeConversation}
-        messages={messages}
-        currentUser={currentUser}
-        onSendMessage={handleSendMessage}
-        onBack={() => navigate('/chat')}
-        messageInput={messageInput}
-        setMessageInput={setMessageInput}
-        typingUsers={typingUsers}
-        participants={getActiveParticipants()}
-      />
+      <div className="h-[calc(100vh-64px)] bg-black text-white">
+        {mobileView === 'list' ? (
+          // Mobile Conversation List View
+          <div className="h-full flex flex-col">
+            <div className="p-4 border-b border-white/10 flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Messages</h2>
+              <button 
+                onClick={() => setIsNewChatModalOpen(true)}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <PlusCircle className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {conversations.length > 0 ? (
+                <ConversationList
+                  conversations={conversations}
+                  activeConversationId={activeConversation?.id}
+                  currentUserId={currentUser.id}
+                  onSelectConversation={handleSelectConversation}
+                />
+              ) : (
+                <div className="p-4 text-center text-gray-400">
+                  {loading ? 'Loading conversations...' : (
+                    <div>
+                      <p className="mb-4">No conversations yet</p>
+                      <button
+                        onClick={() => setIsNewChatModalOpen(true)}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg"
+                      >
+                        Start a New Chat
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Mobile Chat View
+          <MobileChatView
+            activeConversation={activeConversation}
+            messages={messages}
+            currentUser={currentUser}
+            onSendMessage={handleSendMessage}
+            onBack={handleMobileBack}
+            messageInput={messageInput}
+            setMessageInput={setMessageInput}
+            typingUsers={typingUsers}
+            participants={getActiveParticipants()}
+          />
+        )}
+
+        {/* New Chat Modal */}
+        {isNewChatModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsNewChatModalOpen(false)}></div>
+            
+            <div className="relative bg-gray-900 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-gray-900 p-4 border-b border-white/10 flex items-center justify-between z-10">
+                <h2 className="text-xl font-bold">New Conversation</h2>
+                <button 
+                  onClick={() => setIsNewChatModalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-white/5 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-6">
+                {/* Search Input */}
+                <div className="relative mb-4">
+                  <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    placeholder="Search users..."
+                    className="w-full px-10 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+                  />
+                </div>
+                
+                {/* User List */}
+                <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
+                  {searchLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <Loader className="w-8 h-8 text-purple-500 animate-spin" />
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    searchResults.map(user => (
+                      <div 
+                        key={user.id}
+                        onClick={() => handleStartConversation(user.id)}
+                        className="p-3 flex items-center gap-3 rounded-lg cursor-pointer hover:bg-white/5"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden flex-shrink-0">
+                          {user.avatar_url ? (
+                            <img 
+                              src={user.avatar_url} 
+                              alt={user.display_name} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl font-medium">
+                              {user.display_name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium">{user.display_name}</h4>
+                          <p className="text-gray-400 text-sm">{user.email}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : searchQuery.length > 1 ? (
+                    <div className="flex flex-col items-center py-10 text-gray-400">
+                      <User className="w-12 h-12 mb-2 opacity-50" />
+                      <p>No users found</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center py-10 text-gray-400">
+                      <p>Type at least 2 characters to search</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
+  // Desktop render logic remains unchanged
   return (
     <div className="h-[calc(100vh-64px)] bg-black text-white overflow-hidden">
       {/* New Chat Modal */}

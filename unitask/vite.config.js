@@ -1,36 +1,40 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    {
-      name: 'html-transform',
-      transformIndexHtml(html) {
-        return html.replace(
-          /<head>/,
-          `<head>
-          <script>window.API_URL="https://unitask-backend.onrender.com";</script>`
-        );
-      }
-    }
-  ],
-  define: {
-    'import.meta.env.VITE_API_URL': JSON.stringify('https://unitask-backend.onrender.com'),
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
+export default defineConfig(({ command, mode }) => {
+  // Load env file based on `mode` in the current working directory.
+  const env = loadEnv(mode, process.cwd(), '');
+  
+  return {
+    plugins: [react()],
+    define: {
+      // Inject environment variables into the app
+      'process.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || ''),
     },
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: false, // Disable source maps to ensure no leaking of localhost URLs
-    target: 'esnext',
-  },
-  css: {
-    postcss: './postcss.config.cjs',
-  }
+    server: {
+      port: 5173,
+      // Add CORS headers if needed
+      proxy: {
+        '/api': {
+          target: env.VITE_API_URL || 'http://localhost:10000',
+          changeOrigin: true,
+          secure: false,
+        }
+      }
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
+    build: {
+      outDir: 'dist',
+      sourcemap: false, // Disable source maps to ensure no leaking of localhost URLs
+      target: 'esnext',
+    },
+    css: {
+      postcss: './postcss.config.cjs',
+    }
+  };
 });

@@ -4,12 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Force production API URL -->
+    <title>UniTask - Freelancing Platform</title>
     <script>
-      window.API_URL = "https://unitask-backend.onrender.com";
-      console.log('[HTML] Forced API URL:', window.API_URL);
+      // Inject environment variables
+      window.ENV = {
+        API_URL: '%VITE_API_URL%'
+      };
     </script>
-    <title>UniTask</title>
   </head>
   <body>
     <div id="root"></div>

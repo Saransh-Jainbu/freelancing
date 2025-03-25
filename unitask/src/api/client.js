@@ -1,11 +1,11 @@
-// Use the constants directly
 import { API_URL } from './constants';
 
-console.log('[API Client] Using API URL:', API_URL);
-
 export const apiRequest = async (endpoint, options = {}) => {
+  if (!API_URL) {
+    throw new Error('API_URL is not configured');
+  }
+
   const url = `${API_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
-  console.log(`[API Client] Making request to: ${url}`);
   
   const defaultOptions = {
     headers: {
@@ -14,16 +14,20 @@ export const apiRequest = async (endpoint, options = {}) => {
     mode: 'cors',
   };
   
-  const response = await fetch(url, { ...defaultOptions, ...options });
-  const data = await response.json();
-  
-  if (!response.ok) {
-    console.error('[API Client] Request failed:', data);
-    throw new Error(data.message || 'API request failed');
+  try {
+    const response = await fetch(url, { ...defaultOptions, ...options });
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'API request failed');
+    }
+    
+    return data;
+  } catch (error) {
+    // Log only non-sensitive error information
+    console.error('Request failed:', error.message);
+    throw error;
   }
-  
-  return data;
 };
 
-// Export the API_URL directly to ensure it's used everywhere
 export default API_URL;
