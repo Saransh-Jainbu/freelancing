@@ -19,6 +19,20 @@ const OrdersPage = () => {
   const [activeTab, setActiveTab] = useState('buyer');
   const [filter, setFilter] = useState('all');
 
+  const ORDER_TABS = {
+    BUYING: 'buying',
+    SELLING: 'selling'
+  };
+
+  const ORDER_STATUS = {
+    ALL: 'all',
+    PENDING: 'pending',
+    IN_PROGRESS: 'in_progress',
+    DELIVERED: 'delivered',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled'
+  };
+
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -96,6 +110,21 @@ const OrdersPage = () => {
               Selling
             </button>
           </div>
+        </div>
+
+        {/* Add quick stats */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          {[
+            { label: 'Total Orders', value: orders.length },
+            { label: 'Active Orders', value: orders.filter(o => o.status === 'active').length },
+            { label: 'Completed', value: orders.filter(o => o.status === 'completed').length },
+            { label: 'Cancelled', value: orders.filter(o => o.status === 'cancelled').length }
+          ].map(stat => (
+            <div key={stat.label} className="bg-gray-900 border border-white/10 rounded-lg p-4">
+              <p className="text-sm text-gray-400">{stat.label}</p>
+              <p className="text-2xl font-bold mt-1">{stat.value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Filters */}

@@ -16,6 +16,7 @@ import LandingPage from './components/LandingPage';
 import MarketplacePage from './components/marketplace';
 import GigDetails from "./components/gigs/GigDetails";
 import OrdersPage from './components/orders/OrdersPage';
+import OrderDetails from './components/orders/OrderDetails';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -113,6 +114,11 @@ const AppRoutes = () => {
       <Route path="/orders" element={
         <ProtectedRoute>
           <OrdersPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/orders/:orderId" element={
+        <ProtectedRoute>
+          <OrderDetails />
         </ProtectedRoute>
       } />
       

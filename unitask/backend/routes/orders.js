@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 
-// Create new order
+// Add new endpoint for order creation with requirements
 router.post('/', async (req, res) => {
   try {
     const { 
@@ -13,21 +13,48 @@ router.post('/', async (req, res) => {
       amount 
     } = req.body;
 
-    const result = await query(
+    // Start transaction
+    await query('BEGIN');
+
+    // Create the order
+    const orderResult = await query(
       `INSERT INTO orders (
-        gig_id, client_id, freelancer_id, amount, 
-        requirements, delivery_time
+        gig_id, client_id, freelancer_id, amount,
+        requirements, delivery_time, status
       )
       SELECT 
-        $1, $2, user_id, $3, $4, $5
-      FROM gigs
-      WHERE id = $1
+        $1, $2, user_id, $3, $4, $5, 'pending'
+      FROM gigs WHERE id = $1
       RETURNING *`,
       [gig_id, client_id, amount, requirements, delivery_time]
     );
 
-    res.json({ success: true, order: result.rows[0] });
+    // Create a conversation for the order
+    const conversationResult = await query(
+      `INSERT INTO conversations (gig_id, gig_title)
+       SELECT id, title FROM gigs WHERE id = $1
+       RETURNING id`,
+      [gig_id]
+    );
+
+    // Add participants to conversation
+    await query(
+      `INSERT INTO conversation_participants (conversation_id, user_id)
+       VALUES ($1, $2), ($1, (SELECT user_id FROM gigs WHERE id = $3))`,
+      [conversationResult.rows[0].id, client_id, gig_id]
+    );
+
+    await query('COMMIT');
+
+    res.json({ 
+      success: true, 
+      order: {
+        ...orderResult.rows[0],
+        conversation_id: conversationResult.rows[0].id
+      }
+    });
   } catch (error) {
+    await query('ROLLBACK');
     console.error('Error creating order:', error);
     res.status(500).json({ success: false, message: error.message });
   }

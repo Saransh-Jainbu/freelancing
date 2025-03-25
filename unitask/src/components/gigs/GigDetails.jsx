@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContextValue';
 import { API_URL } from '../../constants';
 import { 
   ArrowLeft, Star, Clock, Calendar, CheckCircle, MessageSquare, 
-  Loader, AlertCircle, DollarSign, User, Award, Activity, Share2
+  Loader, AlertCircle, DollarSign, User, Award, Activity, Share2, ShoppingCart
 } from 'lucide-react';
 
 const GigDetails = () => {
@@ -16,6 +16,7 @@ const GigDetails = () => {
   const [contactLoading, setContactLoading] = useState(false);
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   useEffect(() => {
     const loadGigDetails = async () => {
@@ -72,6 +73,29 @@ const GigDetails = () => {
       setError("Failed to start conversation. Please try again.");
     } finally {
       setContactLoading(false);
+    }
+  };
+
+  const handleOrderClick = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gig_id: gig.id,
+          client_id: currentUser.id,
+          requirements: '',
+          delivery_time: 7, // Default delivery time
+          amount: parseFloat(gig.price.replace('$', ''))
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        navigate(`/orders/${data.order.id}`);
+      }
+    } catch (error) {
+      console.error('Error creating order:', error);
     }
   };
 
@@ -319,6 +343,38 @@ const GigDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Add Order Actions */}
+      <div className="sticky bottom-0 bg-gray-900/95 backdrop-blur-sm border-t border-white/10 p-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate(`/chat/${gig.conversation_id}`)}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg flex items-center gap-2"
+            >
+              <MessageSquare className="w-5 h-5" />
+              Contact Seller
+            </button>
+          </div>
+          
+          <button
+            onClick={handleOrderClick}
+            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg flex items-center gap-2"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            Order Now - {gig.price}
+          </button>
+        </div>
+      </div>
+
+      {/* Order Confirmation Modal */}
+      {isOrderModalOpen && (
+        <OrderModal 
+          gig={gig}
+          onClose={() => setIsOrderModalOpen(false)}
+          onConfirm={handleOrderClick}
+        />
+      )}
     </div>
   );
 };

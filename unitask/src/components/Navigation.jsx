@@ -67,6 +67,7 @@ const Navigation = () => {
     { name: 'Dashboard', path: '/dashboard', icon: Grid },
     { name: 'My Gigs', path: '/my-gigs', icon: Briefcase },
     { name: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
+    { name: 'Orders', path: '/orders', icon: ShoppingBag },
     { name: 'Messages', path: '/chat', icon: MessageSquare },
     { name: 'Profile', path: '/profile', icon: User }
   ];
