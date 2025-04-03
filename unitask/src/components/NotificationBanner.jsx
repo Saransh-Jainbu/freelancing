@@ -4,7 +4,12 @@ import { useNotifications } from '../context/NotificationContext';
 
 const NotificationBanner = () => {
   const [showBanner, setShowBanner] = useState(false);
-  const { notificationPermission, pushEnabled, subscribeToPush, isSubscribing } = useNotifications();
+  const notificationsContext = useNotifications();
+  
+  // Handle case where context is not available yet
+  if (!notificationsContext) return null;
+  
+  const { notificationPermission, pushEnabled, subscribeToPush, isSubscribing } = notificationsContext;
   
   // Show the banner when needed
   useEffect(() => {

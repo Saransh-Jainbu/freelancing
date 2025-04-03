@@ -9,7 +9,7 @@ import {
   unsubscribeFromPushNotifications 
 } from '../services/pushNotifications';
 
-export const NotificationContext = createContext();
+export const NotificationContext = createContext(null); // Initialize with null to safely check
 
 export const NotificationProvider = ({ children }) => {
   const { currentUser } = useAuth();

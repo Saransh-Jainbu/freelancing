@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContextValue';
 import PropTypes from 'prop-types';
 import { lazy, Suspense } from 'react';
+import { NotificationProvider } from './context/NotificationContext';
 
 // Import components
 import LoginPage from './components/login';
@@ -135,15 +136,17 @@ const AppRoutes = () => {
 // Main App Component
 const App = () => {
   return (
-    <Router>
-      <AuthProvider>
-        <Suspense fallback={<div className="min-h-screen flex justify-center items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-        </div>}>
-          <AppRoutes />
-        </Suspense>
-      </AuthProvider>
-    </Router>
+    <NotificationProvider>
+      <Router>
+        <AuthProvider>
+          <Suspense fallback={<div className="min-h-screen flex justify-center items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+          </div>}>
+            <AppRoutes />
+          </Suspense>
+        </AuthProvider>
+      </Router>
+    </NotificationProvider>
   );
 };
 
