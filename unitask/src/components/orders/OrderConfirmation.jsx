@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, MessageCircle } from 'lucide-react';
-import confetti from 'canvas-confetti';
 
 const OrderConfirmation = () => {
   const location = useLocation();
@@ -15,33 +14,45 @@ const OrderConfirmation = () => {
       return;
     }
 
-    // Trigger confetti effect on successful order
-    const duration = 3000;
-    const end = Date.now() + duration;
+    // Load confetti dynamically to prevent Rollup resolution issues
+    const loadConfetti = async () => {
+      try {
+        const confettiModule = await import('canvas-confetti');
+        const confetti = confettiModule.default;
+        
+        // Trigger confetti effect on successful order
+        const duration = 3000;
+        const end = Date.now() + duration;
 
-    const confettiInterval = setInterval(() => {
-      if (Date.now() > end) {
-        return clearInterval(confettiInterval);
+        const confettiInterval = setInterval(() => {
+          if (Date.now() > end) {
+            return clearInterval(confettiInterval);
+          }
+
+          confetti({
+            particleCount: 2,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            colors: ['#8b5cf6', '#ec4899']
+          });
+          
+          confetti({
+            particleCount: 2,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            colors: ['#8b5cf6', '#ec4899']
+          });
+        }, 150);
+
+        return () => clearInterval(confettiInterval);
+      } catch (error) {
+        console.error('Failed to load confetti:', error);
       }
+    };
 
-      confetti({
-        particleCount: 2,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ['#8b5cf6', '#ec4899']
-      });
-      
-      confetti({
-        particleCount: 2,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ['#8b5cf6', '#ec4899']
-      });
-    }, 150);
-
-    return () => clearInterval(confettiInterval);
+    loadConfetti();
   }, [order, navigate]);
 
   if (!order) {
