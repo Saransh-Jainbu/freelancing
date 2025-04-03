@@ -289,6 +289,10 @@ const initDb = async () => {
   }
 };
 
+// Verify email configuration on startup
+const { verifyEmailConnection } = require('./services/emailService');
+verifyEmailConnection();
+
 // Initialize database on server start
 initDb();
 

@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { query } = require('../db');  // Updated import path
+const { query } = require('../db');
+const { sendEmail } = require('../services/emailService');
+const { 
+  newOrderTemplate, 
+  newOrderTextTemplate,
+  orderConfirmationTemplate,
+  orderConfirmationTextTemplate
+} = require('../services/emailTemplates');
 
 // Create new order
 router.post('/', async (req, res) => {
@@ -27,23 +34,55 @@ router.post('/', async (req, res) => {
     await query('BEGIN');
 
     try {
+      // Get gig details
+      const gigResult = await query(
+        `SELECT g.title, g.user_id as freelancer_id, g.price, 
+         u.display_name as freelancer_name, u.email as freelancer_email
+         FROM gigs g
+         JOIN users u ON g.user_id = u.id
+         WHERE g.id = $1`,
+        [gig_id]
+      );
+
+      if (gigResult.rows.length === 0) {
+        throw new Error('Gig not found');
+      }
+
+      const gig = gigResult.rows[0];
+
+      // Get buyer details
+      const buyerResult = await query(
+        `SELECT display_name, email FROM users WHERE id = $1`,
+        [client_id]
+      );
+
+      if (buyerResult.rows.length === 0) {
+        throw new Error('Buyer not found');
+      }
+
+      const buyer = buyerResult.rows[0];
+
       // Create the order
       const orderResult = await query(
         `INSERT INTO orders (
           gig_id, client_id, freelancer_id, amount,
           requirements, delivery_time, status, package_type, quantity
         )
-        SELECT 
-          $1, $2, user_id, $3, $4, $5, 'pending', $6, $7
-        FROM gigs WHERE id = $1
+        VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
         RETURNING *`,
-        [gig_id, client_id, amount, requirements || '', delivery_time || 7, package || 'basic', quantity]
+        [
+          gig_id, 
+          client_id, 
+          gig.freelancer_id, 
+          amount, 
+          requirements || '', 
+          delivery_time || 7, 
+          package || 'basic', 
+          quantity
+        ]
       );
 
-      // Check if order was created
-      if (!orderResult.rows[0]) {
-        throw new Error('Failed to create order');
-      }
+      const order = orderResult.rows[0];
 
       // Update order count on gig
       await query(
@@ -56,17 +95,16 @@ router.post('/', async (req, res) => {
       // Create conversation for order communication
       const conversationResult = await query(
         `INSERT INTO conversations (gig_id, gig_title)
-         SELECT id, title FROM gigs WHERE id = $1
+         VALUES ($1, $2)
          RETURNING id`,
-        [gig_id]
+        [gig_id, gig.title]
       );
 
       // Add participants to conversation
       await query(
         `INSERT INTO conversation_participants (conversation_id, user_id)
-         VALUES ($1, $2), ($1, (SELECT user_id FROM gigs WHERE id = $3))
-         RETURNING conversation_id`,
-        [conversationResult.rows[0].id, client_id, gig_id]
+         VALUES ($1, $2), ($1, $3)`,
+        [conversationResult.rows[0].id, client_id, gig.freelancer_id]
       );
 
       // Add initial message about order
@@ -76,18 +114,36 @@ router.post('/', async (req, res) => {
         [
           conversationResult.rows[0].id, 
           client_id,
-          `Order #${orderResult.rows[0].id} has been placed! I'm looking forward to working with you.`
+          `Order #${order.id} has been placed! I'm looking forward to working with you.`
         ]
       );
 
       await query('COMMIT');
 
+      // Send email notification to freelancer
+      const orderWithTitle = { ...order, gig_title: gig.title };
+      sendEmail({
+        to: gig.freelancer_email,
+        subject: `New Order #${order.id} - UniTask`,
+        html: newOrderTemplate(orderWithTitle, buyer, { display_name: gig.freelancer_name }),
+        text: newOrderTextTemplate(orderWithTitle, buyer, { display_name: gig.freelancer_name })
+      }).catch(err => console.error('Error sending seller email:', err));
+
+      // Send confirmation email to buyer
+      sendEmail({
+        to: buyer.email,
+        subject: `Order Confirmation #${order.id} - UniTask`,
+        html: orderConfirmationTemplate(orderWithTitle, { display_name: gig.freelancer_name }),
+        text: orderConfirmationTextTemplate(orderWithTitle, { display_name: gig.freelancer_name })
+      }).catch(err => console.error('Error sending buyer email:', err));
+
       // Return success response
       res.status(201).json({
         success: true,
         order: {
-          ...orderResult.rows[0],
-          conversation_id: conversationResult.rows[0].id
+          ...order,
+          conversation_id: conversationResult.rows[0].id,
+          gig_title: gig.title
         }
       });
     } catch (err) {
