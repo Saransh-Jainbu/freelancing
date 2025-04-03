@@ -1431,6 +1431,8 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
     }
     
     console.log('[Server] Uploading image to Azure:', req.file.originalname);
+    console.log('[Server] File size:', req.file.size, 'bytes');
+    console.log('[Server] File MIME type:', req.file.mimetype);
     
     // Upload to Azure Blob Storage
     const uploadResult = await azureStorage.uploadToAzure(
@@ -1449,6 +1451,16 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
     });
   } catch (error) {
     console.error('[Server] Error uploading image:', error);
+    
+    // Error details for debugging
+    const errorDetails = {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode,
+      requestId: error.requestId || 'none'
+    };
+    
+    console.error('[Server] Error details:', errorDetails);
     
     // Specific error handling for common Azure issues
     if (error.message && error.message.includes('container already exists')) {
@@ -1472,14 +1484,19 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
         console.error('[Server] Error in retry upload:', retryError);
         return res.status(500).json({ 
           success: false, 
-          message: 'Error uploading image after retry: ' + retryError.message
+          message: 'Error uploading image after retry: ' + retryError.message,
+          errorDetails: {
+            message: retryError.message,
+            code: retryError.code || 'unknown'
+          }
         });
       }
     }
     
     res.status(500).json({ 
       success: false, 
-      message: 'Error uploading image: ' + error.message
+      message: 'Error uploading image: ' + error.message,
+      errorDetails
     });
   }
 });
