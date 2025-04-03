@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Bell, X } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContextValue';
 
 const NotificationBanner = () => {
   const [showBanner, setShowBanner] = useState(false);
   const notificationsContext = useNotifications();
+  const auth = useAuth();
   
-  // Handle case where context is not available yet
-  if (!notificationsContext) return null;
+  // Handle case where context is not available yet or user isn't logged in
+  if (!notificationsContext || !auth || !auth.currentUser) return null;
   
   const { notificationPermission, pushEnabled, subscribeToPush, isSubscribing } = notificationsContext;
   

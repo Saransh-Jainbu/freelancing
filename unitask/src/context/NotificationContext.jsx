@@ -9,10 +9,12 @@ import {
   unsubscribeFromPushNotifications 
 } from '../services/pushNotifications';
 
-export const NotificationContext = createContext(null); // Initialize with null to safely check
+export const NotificationContext = createContext(null);
 
 export const NotificationProvider = ({ children }) => {
-  const { currentUser } = useAuth();
+  const auth = useAuth();
+  const currentUser = auth?.currentUser;
+  
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);
@@ -22,7 +24,7 @@ export const NotificationProvider = ({ children }) => {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
 
-  // Initialize socket connection
+  // Initialize socket connection (only when currentUser is available)
   useEffect(() => {
     if (!currentUser) return;
     
@@ -300,7 +302,8 @@ export const NotificationProvider = ({ children }) => {
     subscribeToPush,
     unsubscribeFromPush,
     isSubscribing,
-    sendTestNotification
+    sendTestNotification,
+    currentUser // Include currentUser in the context for convenience
   };
 
   return (
