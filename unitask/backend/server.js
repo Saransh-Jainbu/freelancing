@@ -282,6 +282,87 @@ const initDb = async () => {
       )
     `);
     
+    // Add user_type column to users table
+    await query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS user_type VARCHAR(20) DEFAULT 'freelancer'
+    `);
+
+    // Add business profile table
+    await query(`
+      CREATE TABLE IF NOT EXISTS business_profiles (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        company_name VARCHAR(255) NOT NULL,
+        industry VARCHAR(100),
+        company_size VARCHAR(50),
+        website_url VARCHAR(255),
+        description TEXT,
+        logo_url VARCHAR(255),
+        verified BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Projects table (business requirements)
+    await query(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        category VARCHAR(100),
+        skills TEXT[],
+        budget_min DECIMAL(10,2),
+        budget_max DECIMAL(10,2),
+        deadline TIMESTAMP WITH TIME ZONE,
+        status VARCHAR(50) DEFAULT 'open',
+        attachment_url VARCHAR(255),
+        visibility VARCHAR(50) DEFAULT 'public',
+        featured BOOLEAN DEFAULT FALSE,
+        bid_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Bids table
+    await query(`
+      CREATE TABLE IF NOT EXISTS bids (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+        freelancer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        amount DECIMAL(10,2) NOT NULL,
+        delivery_time INTEGER NOT NULL,
+        proposal TEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(project_id, freelancer_id)
+      )
+    `);
+
+    // Project-Freelancer relationship after a bid is accepted
+    await query(`
+      CREATE TABLE IF NOT EXISTS project_awards (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+        freelancer_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        bid_id INTEGER REFERENCES bids(id) ON DELETE SET NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        status VARCHAR(50) DEFAULT 'in_progress',
+        start_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        deadline TIMESTAMP WITH TIME ZONE,
+        completed_at TIMESTAMP WITH TIME ZONE,
+        client_feedback TEXT,
+        client_rating INTEGER,
+        freelancer_feedback TEXT,
+        freelancer_rating INTEGER,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Error initializing database', error);
@@ -585,7 +666,18 @@ app.get('/api/auth/github/callback',
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, displayName, university, location, dateOfBirth, contactNumber } = req.body;
+    const { 
+      email, 
+      password, 
+      displayName, 
+      userType = 'freelancer',
+      // Business specific fields
+      companyName,
+      industry,
+      companySize,
+      websiteUrl,
+      companyDescription
+    } = req.body;
     
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -594,23 +686,37 @@ app.post('/api/auth/register', async (req, res) => {
     // Start a transaction
     await query('BEGIN');
     
-    // Insert user
+    // Insert user with user_type
     const userResult = await query(
-      'INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, $3) RETURNING id',
-      [email, passwordHash, displayName]
+      'INSERT INTO users (email, password_hash, display_name, user_type) VALUES ($1, $2, $3, $4) RETURNING id',
+      [email, passwordHash, displayName, userType]
     );
     
     const userId = userResult.rows[0].id;
     
-    // Create empty profile
-    await query(
-      'INSERT INTO profiles (user_id, location) VALUES ($1, $2)',
-      [userId, location]
-    );
+    if (userType === 'business') {
+      // Create business profile
+      await query(
+        `INSERT INTO business_profiles 
+         (user_id, company_name, industry, company_size, website_url, description) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [userId, companyName, industry, companySize, websiteUrl, companyDescription]
+      );
+    } else {
+      // Create freelancer profile
+      await query(
+        'INSERT INTO profiles (user_id) VALUES ($1)',
+        [userId]
+      );
+    }
     
     await query('COMMIT');
     
-    res.status(201).json({ success: true, userId });
+    res.status(201).json({ 
+      success: true, 
+      userId,
+      userType
+    });
   } catch (error) {
     await query('ROLLBACK');
     
@@ -628,7 +734,7 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     
     const userResult = await query(
-      'SELECT id, email, password_hash, display_name FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, display_name, user_type FROM users WHERE email = $1',
       [email]
     );
     
@@ -1610,3 +1716,13 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
     });
   }
 });
+
+// Import new routes
+const businessRoutes = require('./routes/business');
+const projectRoutes = require('./routes/projects');
+const bidRoutes = require('./routes/bids');
+
+// Register new routes
+app.use('/api/business', businessRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/bids', bidRoutes);

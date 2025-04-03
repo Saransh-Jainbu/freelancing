@@ -1,163 +1,103 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { useAuth } from './context/AuthContextValue';
-import PropTypes from 'prop-types';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
+import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
-
-// Import components
-import LoginPage from './components/login';
-import SignupPage from './components/signup';
-import ProfilePage from './components/profile';
-import MyGigsPage from './components/gigs/MyGigs';
-import DashboardPage from './components/dashboard';
-import ChatPage from './components/chat';
-import Navigation from './components/Navigation';
-import OAuthCallback from './components/OAuthCallback';
-import LandingPage from './components/LandingPage';
-import MarketplacePage from './components/marketplace';
-import GigDetails from "./components/gigs/GigDetails";
-import OrdersPage from './components/orders/OrdersPage';
-import OrderDetails from './components/orders/OrderDetails';
 import NotificationBanner from './components/NotificationBanner';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoadingScreen from './components/LoadingScreen';
 
-// Import the new OrderConfirmation component
+// Lazy-loaded components
+const HomePage = lazy(() => import('./components/HomePage'));
+const LoginPage = lazy(() => import('./components/auth/LoginPage'));
+const SignupPage = lazy(() => import('./components/auth/SignupPage'));
+const BusinessSignupPage = lazy(() => import('./components/auth/BusinessSignupPage'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const UserProfile = lazy(() => import('./components/profile/UserProfile'));
+const ProfileSettingsPage = lazy(() => import('./components/profile/ProfileSettingsPage'));
+const GigsPage = lazy(() => import('./components/gigs/GigsPage'));
+const GigDetails = lazy(() => import('./components/gigs/GigDetails'));
+const ProfilePage = lazy(() => import('./components/profile/ProfilePage'));
+const OrdersPage = lazy(() => import('./components/orders/OrdersPage'));
+const OrderDetails = lazy(() => import('./components/orders/OrderDetails'));
+const ChatPage = lazy(() => import('./components/chat/ChatPage'));
 const OrderConfirmation = lazy(() => import('./components/orders/OrderConfirmation'));
 
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+// Project marketplace system
+const ProjectsList = lazy(() => import('./components/projects/ProjectsList'));
+const ProjectDetail = lazy(() => import('./components/projects/ProjectDetail'));
+const BusinessProjectsPage = lazy(() => import('./components/business/BusinessProjectsPage'));
+const BusinessProjectDetail = lazy(() => import('./components/business/BusinessProjectDetail'));
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // Always include Navigation for all routes
+function App() {
   return (
-    <>
-      <Navigation />
-      <NotificationBanner />
-      <div className="pt-16">
-        {children}
-      </div>
-    </>
-  );
-};
+    <AuthProvider>
+      <NotificationProvider>
+        <BrowserRouter>
+          <NotificationBanner />
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<HomePage />} />
+                <Route path="login" element={<LoginPage />} />
+                <Route path="signup" element={<SignupPage />} />
+                <Route path="business-signup" element={<BusinessSignupPage />} />
+                <Route path="dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="profile" element={
+                  <ProtectedRoute>
+                    <ProfileSettingsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="profile/:userId" element={<ProfilePage />} />
+                <Route path="gigs" element={<GigsPage />} />
+                <Route path="gig/:gigId" element={<GigDetails />} />
+                <Route path="orders" element={
+                  <ProtectedRoute>
+                    <OrdersPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="orders/:orderId" element={
+                  <ProtectedRoute>
+                    <OrderDetails />
+                  </ProtectedRoute>
+                } />
+                <Route path="order-confirmation" element={
+                  <ProtectedRoute>
+                    <OrderConfirmation />
+                  </ProtectedRoute>
+                } />
+                <Route path="chat/:conversationId?" element={
+                  <ProtectedRoute>
+                    <ChatPage />
+                  </ProtectedRoute>
+                } />
 
-ProtectedRoute.propTypes = {
-  children: PropTypes.node.isRequired
-};
-
-// Routes Component - Uses the auth context
-const AppRoutes = () => {
-  const { currentUser } = useAuth();
-
-  return (
-    <Routes>
-      {/* Landing page as home route */}
-      <Route path="/" element={<LandingPage />} />
-
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/oauth-callback" element={<OAuthCallback />} />
-      
-      {/* Protected routes with dynamic path support */}
-      <Route path="/profile" element={
-        <ProtectedRoute>
-          <ProfilePage />
-        </ProtectedRoute>
-      } />
-      <Route path="/profile/:userId" element={
-        <ProtectedRoute>
-          <ProfilePage />
-        </ProtectedRoute>
-      } />
-      
-      {/* Other protected routes */}
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <DashboardPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/my-gigs" element={
-        <ProtectedRoute>
-          <MyGigsPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/chat" element={
-        <ProtectedRoute>
-          <ChatPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/chat/:conversationId" element={
-        <ProtectedRoute>
-          <ChatPage />
-        </ProtectedRoute>
-      } />
-      
-      {/* Marketplace routes */}
-      <Route path="/marketplace" element={
-        <ProtectedRoute>
-          <MarketplacePage />
-        </ProtectedRoute>
-      } />
-      <Route path="/gig/:gigId" element={
-        <ProtectedRoute>
-          <GigDetails />
-        </ProtectedRoute>
-      } />
-      
-      {/* Orders route */}
-      <Route path="/orders" element={
-        <ProtectedRoute>
-          <OrdersPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/orders/:orderId" element={
-        <ProtectedRoute>
-          <OrderDetails />
-        </ProtectedRoute>
-      } />
-
-      {/* Add the new route for order confirmation */}
-      <Route path="/order-confirmation" element={
-        <ProtectedRoute>
-          <OrderConfirmation />
-        </ProtectedRoute>
-      } />
-      
-      {/* Default redirect - send to landing page if not logged in, dashboard if logged in */}
-      <Route path="*" element={
-        currentUser ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
-      } />
-    </Routes>
-  );
-};
-
-// Main App Component
-const App = () => {
-  return (
-    <NotificationProvider>
-      <Router>
-        <AuthProvider>
-          <Suspense fallback={<div className="min-h-screen flex justify-center items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-          </div>}>
-            <AppRoutes />
+                {/* Project marketplace routes */}
+                <Route path="projects" element={<ProjectsList />} />
+                <Route path="projects/:projectId" element={<ProjectDetail />} />
+                
+                {/* Business project management routes */}
+                <Route path="business/projects" element={
+                  <ProtectedRoute>
+                    <BusinessProjectsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="business/projects/:projectId" element={
+                  <ProtectedRoute>
+                    <BusinessProjectDetail />
+                  </ProtectedRoute>
+                } />
+              </Route>
+            </Routes>
           </Suspense>
-        </AuthProvider>
-      </Router>
-    </NotificationProvider>
+        </BrowserRouter>
+      </NotificationProvider>
+    </AuthProvider>
   );
-};
+}
 
 export default App;

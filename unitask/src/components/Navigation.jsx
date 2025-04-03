@@ -1,311 +1,297 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown, MessageSquare, ShoppingBag } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextValue';
-import { getProfile } from '../api/profile';
+import NotificationBell from './NotificationBell';
+import { 
+  Menu, X, Home, User, PanelLeft, Briefcase, Clipboard, 
+  LogOut, MessageSquare, Settings, ChevronDown, Wallet, Building
+} from 'lucide-react';
 
 const Navigation = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
-  const [profileData, setProfileData] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const { currentUser, logout } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
-
-  // Fetch profile data when currentUser changes
+  const isLoggedIn = !!currentUser;
+  
+  // Close mobile menu when route changes
   useEffect(() => {
-    const fetchProfileData = async () => {
-      if (currentUser?.id) {
-        try {
-          const profile = await getProfile(currentUser.id);
-          console.log("Fetched profile data:", profile);
-          setProfileData(profile);
-        } catch (error) {
-          console.error("Error fetching profile data:", error);
-        }
-      }
-    };
-
-    fetchProfileData();
-  }, [currentUser]);
-
-  // For debugging
+    setIsOpen(false);
+  }, [location]);
+  
+  // Close dropdowns when clicking outside
   useEffect(() => {
-    console.log("Navigation currentUser:", currentUser);
-    console.log("Navigation profileData:", profileData);
-  }, [currentUser, profileData]);
-
-  // Close profile menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      const dropdownButton = document.getElementById('profile-dropdown');
-      const dropdownMenu = document.getElementById('profile-menu');
-      
-      if (dropdownButton && dropdownMenu) {
-        if (!dropdownButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
-          setIsProfileMenuOpen(false);
-        }
+    const closeDropdowns = (e) => {
+      if (showUserDropdown && 
+          !e.target.closest('.user-dropdown-toggle') && 
+          !e.target.closest('.user-dropdown-menu')) {
+        setShowUserDropdown(false);
       }
     };
     
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const handleAvatarError = () => {
-    console.log("Avatar failed to load");
-    setAvatarError(true);
-  };
-
-  const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: Grid },
-    { name: 'My Gigs', path: '/my-gigs', icon: Briefcase },
-    { name: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
-    { name: 'Orders', path: '/orders', icon: ShoppingBag },
-    { name: 'Messages', path: '/chat', icon: MessageSquare },
-    { name: 'Profile', path: '/profile', icon: User }
-  ];
-
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
-
-  // Get avatar URL from currentUser with proper fallback handling
-  const getAvatarUrl = () => {
-    // First check profile data from API
-    if (profileData?.avatar_url) {
-      return profileData.avatar_url;
-    }
-    // Then check different possible locations in currentUser
-    if (currentUser?.avatar_url) {
-      return currentUser.avatar_url;
-    } else if (currentUser?.photoURL) {
-      return currentUser.photoURL;
-    } else if (currentUser?.profile?.avatar_url) {
-      return currentUser.profile.avatar_url;
-    }
-    return null;
-  };
-
-  // Default avatar or initials if no avatar is available
-  const getAvatarContent = () => {
-    const avatarUrl = getAvatarUrl();
-    console.log("Avatar URL being used:", avatarUrl);
-    
-    if (!avatarError && avatarUrl) {
-      return (
-        <img
-          className="h-8 w-8 rounded-full object-cover"
-          src={avatarUrl}
-          alt="Profile"
-          onError={handleAvatarError}
-        />
-      );
-    } else {
-      // Get display name from profile data first, then fall back to currentUser
-      const displayName = profileData?.display_name || currentUser?.display_name || currentUser?.name || '';
-      return (
-        <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
-          {displayName.charAt(0) || 'U'}
-        </div>
-      );
-    }
-  };
-
-  const getMobileAvatarContent = () => {
-    const avatarUrl = getAvatarUrl();
-    
-    if (!avatarError && avatarUrl) {
-      return (
-        <img
-          className="h-10 w-10 rounded-full object-cover"
-          src={avatarUrl}
-          alt="Profile"
-          onError={handleAvatarError}
-        />
-      );
-    } else {
-      return (
-        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold">
-          {currentUser?.display_name?.charAt(0) || currentUser?.name?.charAt(0) || 'U'}
-        </div>
-      );
-    }
-  };
-
-  // Get display name with fallbacks
-  const getDisplayName = () => {
-    return profileData?.display_name || currentUser?.display_name || currentUser?.name || 'User';
-  };
-
+    document.addEventListener('mousedown', closeDropdowns);
+    return () => {
+      document.removeEventListener('mousedown', closeDropdowns);
+    };
+  }, [showUserDropdown]);
+  
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-black border-b border-white/10 h-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+    <nav className="bg-black/80 backdrop-blur-md border-b border-white/10 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            {/* Logo */}
-            <Link to="/dashboard" className="flex-shrink-0 flex items-center">
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
-                UniTask
-              </span>
-            </Link>
-            
-            {/* Desktop Navigation */}
-            <div className="hidden md:ml-10 md:flex md:items-center md:space-x-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 ${
-                    isActive(item.path)
-                      ? 'bg-white/10 text-white'
-                      : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <item.icon size={16} />
-                  {item.name}
-                </Link>
-              ))}
+            <div className="flex-shrink-0 flex items-center">
+              {/* Logo */}
+              <Link to="/" className="flex items-center gap-2">
+                <span className="bg-gradient-to-r from-purple-600 to-pink-600 h-8 w-8 rounded-lg"></span>
+                <span className="font-bold text-xl">UniTask</span>
+              </Link>
             </div>
           </div>
           
-          {/* Profile dropdown */}
-          <div className="hidden md:flex md:items-center">
-            <div className="ml-3 relative">
-              <button
-                id="profile-dropdown"
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className="flex items-center gap-2 text-sm bg-white/5 border border-white/10 rounded-full px-3 py-2 hover:bg-white/10 focus:outline-none"
-              >
-                {getAvatarContent()}
-                <span className="hidden md:block">{getDisplayName()}</span>
-                <ChevronDown size={16} />
-              </button>
-
-              {isProfileMenuOpen && (
-                <div
-                  id="profile-menu"
-                  className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-gray-900/95 backdrop-blur-sm border border-white/10 py-1 z-50"
-                >
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  >
-                    <User size={16} />
-                    Your Profile
+          {/* Desktop navigation */}
+          <div className="hidden md:flex md:items-center md:space-x-4">
+            <Link to="/" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
+              Home
+            </Link>
+            <Link to="/gigs" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
+              Services
+            </Link>
+            <Link to="/projects" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
+              Projects
+            </Link>
+            {!isLoggedIn ? (
+              <>
+                <Link to="/login" className="ml-4 px-4 py-2 rounded-md text-sm hover:bg-white/5 transition-colors">
+                  Login
+                </Link>
+                <Link to="/signup" className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-md text-sm hover:opacity-90 transition-opacity">
+                  Sign Up
+                </Link>
+              </>
+            ) : (
+              <>
+                {currentUser.user_type === 'business' ? (
+                  <Link to="/business/projects" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
+                    My Projects
                   </Link>
-                  <Link
-                    to="/settings"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  >
-                    <Settings size={16} />
-                    Settings
+                ) : (
+                  <Link to="/orders" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
+                    Orders
                   </Link>
-                  <div className="border-t border-white/5 my-1" />
-                  <button
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/5 flex items-center gap-2"
-                  >
-                    <LogOut size={16} />
-                    Sign out
-                  </button>
+                )}
+                <Link to="/chat" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
+                  Messages
+                </Link>
+                <div className="ml-2">
+                  <NotificationBell />
                 </div>
-              )}
-            </div>
+                <div className="relative">
+                  <button
+                    className="ml-2 flex items-center gap-2 user-dropdown-toggle"
+                    onClick={() => setShowUserDropdown(!showUserDropdown)}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
+                      {currentUser.avatarUrl ? (
+                        <img 
+                          src={currentUser.avatarUrl} 
+                          alt={currentUser.displayName || 'User'} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 text-gray-400" />
+                      )}
+                    </div>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                  
+                  {showUserDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-white/10 rounded-lg shadow-lg user-dropdown-menu z-20">
+                      <div className="p-2 border-b border-white/10">
+                        <div className="font-medium">
+                          {currentUser.displayName || 'User'}
+                        </div>
+                        <div className="text-xs text-gray-400 truncate">
+                          {currentUser.email}
+                        </div>
+                      </div>
+                      <div className="py-1">
+                        <Link 
+                          to="/dashboard" 
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
+                        >
+                          <PanelLeft className="w-4 h-4" />
+                          Dashboard
+                        </Link>
+                        <Link 
+                          to="/profile" 
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
+                        >
+                          <Settings className="w-4 h-4" />
+                          Settings
+                        </Link>
+                        
+                        {currentUser.user_type === 'business' ? (
+                          <Link 
+                            to="/business/projects" 
+                            className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
+                          >
+                            <Building className="w-4 h-4" />
+                            Business Projects
+                          </Link>
+                        ) : (
+                          <>
+                            <Link 
+                              to="/orders" 
+                              className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
+                            >
+                              <Clipboard className="w-4 h-4" />
+                              Orders
+                            </Link>
+                            <Link 
+                              to={`/profile/${currentUser.id}`} 
+                              className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
+                            >
+                              <User className="w-4 h-4" />
+                              My Profile
+                            </Link>
+                          </>
+                        )}
+                        
+                        <Link 
+                          to="/chat" 
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          Messages
+                        </Link>
+                        
+                        <button 
+                          onClick={logout} 
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm w-full text-left text-red-400"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
           
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
+            {isLoggedIn && (
+              <>
+                <div className="mr-2">
+                  <NotificationBell />
+                </div>
+                <Link to="/chat" className="p-2 rounded-md text-sm hover:bg-white/5 mr-2">
+                  <MessageSquare className="w-5 h-5" />
+                </Link>
+              </>
+            )}
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-white/5 focus:outline-none"
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2 rounded-md hover:bg-white/5"
             >
-              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {isOpen ? <X /> : <Menu />}
             </button>
           </div>
         </div>
       </div>
       
       {/* Mobile menu */}
-      {isMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40">
-          {/* Dark overlay */}
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)} />
-          
-          {/* Menu content */}
-          <div className="fixed inset-y-0 right-0 w-64 bg-gray-900 border-l border-white/10">
-            <div className="p-4 border-b border-white/10 flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Menu</h2>
-              <button onClick={() => setIsMenuOpen(false)} className="p-2">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <div className="px-2 py-3 space-y-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className={`block px-3 py-2 rounded-md text-base font-medium flex items-center gap-3 ${
-                    isActive(item.path)
-                      ? 'bg-white/10 text-white'
-                      : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
+      {isOpen && (
+        <div className="md:hidden border-t border-white/10">
+          <div className="px-2 pt-2 pb-3 space-y-1">
+            <Link 
+              to="/" 
+              className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+            >
+              <Home className="w-5 h-5" />
+              Home
+            </Link>
+            <Link 
+              to="/gigs" 
+              className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+            >
+              <Briefcase className="w-5 h-5" />
+              Services
+            </Link>
+            <Link 
+              to="/projects" 
+              className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+            >
+              <Clipboard className="w-5 h-5" />
+              Projects
+            </Link>
+
+            {isLoggedIn ? (
+              <>
+                <Link 
+                  to="/dashboard" 
+                  className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
                 >
-                  <item.icon size={18} />
-                  {item.name}
+                  <PanelLeft className="w-5 h-5" />
+                  Dashboard
                 </Link>
-              ))}
-            </div>
-            <div className="pt-4 pb-3 border-t border-white/5">
-              <div className="flex items-center px-5">
-                <div className="flex-shrink-0">
-                  {getMobileAvatarContent()}
-                </div>
-                <div className="ml-3">
-                  <div className="text-base font-medium text-white">
-                    {getDisplayName()}
-                  </div>
-                  <div className="text-sm font-medium text-gray-400">
-                    {currentUser?.email || 'user@example.com'}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 px-2 space-y-1">
-                <Link
-                  to="/profile"
-                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
-                  onClick={() => setIsMenuOpen(false)}
+                {currentUser.user_type === 'business' ? (
+                  <Link 
+                    to="/business/projects" 
+                    className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+                  >
+                    <Building className="w-5 h-5" />
+                    Business Projects
+                  </Link>
+                ) : (
+                  <Link 
+                    to="/orders" 
+                    className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+                  >
+                    <Clipboard className="w-5 h-5" />
+                    Orders
+                  </Link>
+                )}
+                <Link 
+                  to="/profile" 
+                  className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
                 >
-                  <User size={18} />
-                  Your Profile
+                  <User className="w-5 h-5" />
+                  Profile
                 </Link>
-                <Link
-                  to="/settings"
-                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-3"
-                  onClick={() => setIsMenuOpen(false)}
+                <button 
+                  onClick={logout} 
+                  className="block w-full text-left px-3 py-2 rounded-md hover:bg-white/5 text-red-400 flex items-center gap-2"
                 >
-                  <Settings size={18} />
-                  Settings
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-400 hover:bg-white/5 flex items-center gap-3"
-                >
-                  <LogOut size={18} />
-                  Sign out
+                  <LogOut className="w-5 h-5" />
+                  Logout
                 </button>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <Link 
+                  to="/login" 
+                  className="block px-3 py-2 rounded-md hover:bg-white/5 border border-white/10 text-center"
+                >
+                  Login
+                </Link>
+                <Link 
+                  to="/signup" 
+                  className="block px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-md text-center"
+                >
+                  Sign Up
+                </Link>
+                <Link 
+                  to="/business-signup" 
+                  className="block px-3 py-2 rounded-md hover:bg-white/5 text-center text-sm"
+                >
+                  Register as a Business
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
