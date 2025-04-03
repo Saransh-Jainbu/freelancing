@@ -2,18 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111827" />
+    <meta name="description" content="UniTask - Freelancing marketplace for students and professionals" />
+    
+    <!-- PWA support -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <link rel="mask-icon" href="/mask-icon.svg" color="#111827">
+    
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="UniTask" />
+    <meta property="og:description" content="Connect with top freelancers & projects. The marketplace for students and professionals." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:url" content="https://unitask.com" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="UniTask" />
+    <meta name="twitter:description" content="Connect with top freelancers & projects." />
+    <meta name="twitter:image" content="/twitter-image.png" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <title>UniTask - Freelancing Platform</title>
-    <script>
-      // Inject environment variables
-      window.ENV = {
-        API_URL: '%VITE_API_URL%'
-      };
-    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/index.jsx"></script>
   </body>
 </html>

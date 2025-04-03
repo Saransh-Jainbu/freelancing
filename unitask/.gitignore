@@ -3,6 +3,10 @@
 /backend/node_modules
 /.pnp
 .pnp.js
+node_modules
+dist
+dist-ssr
+*.local
 
 # Environment variables - VERY IMPORTANT
 .env
@@ -12,6 +16,11 @@
 .env.production.local
 /backend/.env
 /backend/.env.*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Testing
 /coverage
@@ -27,6 +36,8 @@ yarn-debug.log*
 yarn-error.log*
 logs
 *.log
+pnpm-debug.log*
+lerna-debug.log*
 
 # Editor directories and files
 .vscode/*
@@ -45,6 +56,10 @@ logs
 *.launch
 .settings/
 *.sublime-workspace
+.idea/
+*.sublime-project
+*.sublime-workspace
+.vscode/
 
 # OS generated files
 .DS_Store
@@ -53,6 +68,8 @@ logs
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+Thumbs.db
+.DS_Store
 Thumbs.db
 
 # Sensitive files patterns (custom)

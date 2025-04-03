@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import NotificationBanner from './components/NotificationBanner';
-import Layout from './components/Layout'; // Updated correct import path
+import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingScreen from './components/LoadingScreen';
 

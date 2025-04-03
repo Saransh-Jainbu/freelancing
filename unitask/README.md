@@ -1,44 +1,96 @@
-# UniTask - Freelance Marketplace Platform
+# UniTask - Freelancing Platform
 
-UniTask is a comprehensive freelancing marketplace platform designed for students and professionals to offer and purchase services. The platform features real-time chat, order management, push notifications, and a responsive design optimized for both desktop and mobile devices.
+UniTask is a modern freelancing platform designed specifically for students and professionals to offer services, find projects, and collaborate efficiently.
 
 ## Features
 
-### Core Functionality
-- **User Authentication**: Login, registration, and OAuth support (Google, GitHub)
-- **Marketplace**: Browse and search available services/gigs
-- **Order Management**: Create, track, and manage service orders
-- **Real-time Chat**: Communication between clients and freelancers
-- **Profile Management**: Customize profiles with skills, languages, and portfolio items
-- **Review System**: Rate and review completed services
+- **Gig Marketplace**: List and discover services with detailed descriptions and packages
+- **Project Bidding System**: Post projects and receive competitive bids from skilled freelancers
+- **Real-time Chat**: Communicate seamlessly with clients and freelancers
+- **Order Management**: Track milestones, review deliveries and manage payments
+- **Push Notifications**: Stay updated with real-time notifications
+- **User Profiles**: Create portfolios with skills, reviews, and work history
+- **Secure Payments**: Handle transactions securely with multiple payment options
 
-### Advanced Features
-- **Push Notifications**: Receive notifications even when the browser is closed
-- **Responsive Design**: Optimized for both desktop and mobile
-- **File Uploads**: Share files through Azure Blob Storage
-- **Multiple Service Packages**: Basic, standard, premium package options
-- **Order Milestones**: Track progress through project milestones
+## Technologies Used
 
-## Technology Stack
-
-### Frontend
-- **Framework**: React.js with Vite
-- **Styling**: TailwindCSS
-- **State Management**: React Context API
-- **Routing**: React Router
-- **API Communication**: Fetch API
-- **Real-time Communication**: Socket.IO client
-- **Push Notifications**: Web Push API with service workers
-
-### Backend
-- **Framework**: Express.js (Node.js)
-- **Database**: PostgreSQL
-- **Authentication**: Passport.js, bcrypt.js
-- **Real-time Communication**: Socket.IO
+- **Frontend**: React 18, React Router, Lucide React, Tailwind CSS
+- **Backend**: Express, Node.js, PostgreSQL, Socket.IO
+- **Authentication**: JWT, HTTP-only cookies
 - **File Storage**: Azure Blob Storage
-- **Push Notifications**: web-push library with VAPID keys
+- **Real-time Communication**: WebSockets
+- **Push Notifications**: Web Push API
+- **Deployment**: Vercel (frontend), Azure App Service (backend)
 
-## Project Structure
+## Getting Started
+
+### Prerequisites
+
+- Node.js 16+
+- npm or yarn
+- PostgreSQL database
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/unitask.git
+   cd unitask
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Set up environment variables:
+   - Copy `.env.example` to `.env`
+   - Fill in the required environment variables
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+5. The app should be running at `http://localhost:3000`
+
+### Backend Setup
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Set up environment variables:
+   - Copy `.env.example` to `.env`
+   - Configure database connection and other required variables
+
+4. Run database migrations:
+   ```bash
+   npm run migrate
+   # or
+   yarn migrate
+   ```
+
+5. Start the backend server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+### Project Structure
 
 ```
 unitask/
@@ -47,54 +99,6 @@ unitask/
 ├── public/         # Static files
 └── package.json    # Frontend dependencies
 ```
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 14+ and npm
-- PostgreSQL database (we're using Neon.tech)
-
-### Setup Instructions
-
-1. **Clone the repository**
-
-```bash
-git clone <repository-url>
-cd unitask
-```
-
-2. **Install frontend dependencies**
-
-```bash
-npm install
-```
-
-3. **Install backend dependencies**
-
-```bash
-cd backend
-npm install
-cd ..
-```
-
-4. **Start the backend server**
-
-```bash
-cd backend
-npm run dev
-```
-
-The backend will start on http://localhost:5000
-
-5. **Start the frontend development server**
-
-```bash
-# In a new terminal window
-npm run dev
-```
-
-The frontend will start on http://localhost:5173
 
 ## Environment Variables
 
