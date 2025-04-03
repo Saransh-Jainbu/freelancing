@@ -1,6 +1,42 @@
-# UniTask - Freelancing Platform for University Students
+# UniTask - Freelance Marketplace Platform
 
-A full-stack application that connects university students with freelancing opportunities.
+UniTask is a comprehensive freelancing marketplace platform designed for students and professionals to offer and purchase services. The platform features real-time chat, order management, push notifications, and a responsive design optimized for both desktop and mobile devices.
+
+## Features
+
+### Core Functionality
+- **User Authentication**: Login, registration, and OAuth support (Google, GitHub)
+- **Marketplace**: Browse and search available services/gigs
+- **Order Management**: Create, track, and manage service orders
+- **Real-time Chat**: Communication between clients and freelancers
+- **Profile Management**: Customize profiles with skills, languages, and portfolio items
+- **Review System**: Rate and review completed services
+
+### Advanced Features
+- **Push Notifications**: Receive notifications even when the browser is closed
+- **Responsive Design**: Optimized for both desktop and mobile
+- **File Uploads**: Share files through Azure Blob Storage
+- **Multiple Service Packages**: Basic, standard, premium package options
+- **Order Milestones**: Track progress through project milestones
+
+## Technology Stack
+
+### Frontend
+- **Framework**: React.js with Vite
+- **Styling**: TailwindCSS
+- **State Management**: React Context API
+- **Routing**: React Router
+- **API Communication**: Fetch API
+- **Real-time Communication**: Socket.IO client
+- **Push Notifications**: Web Push API with service workers
+
+### Backend
+- **Framework**: Express.js (Node.js)
+- **Database**: PostgreSQL
+- **Authentication**: Passport.js, bcrypt.js
+- **Real-time Communication**: Socket.IO
+- **File Storage**: Azure Blob Storage
+- **Push Notifications**: web-push library with VAPID keys
 
 ## Project Structure
 
@@ -238,17 +274,3 @@ To ensure your site works properly online:
 ### Frontend Deployment
 
 Deploy your frontend to Netlify or Vercel, pointing to your Render backend URL.
-
-## Features
-
-- User authentication (login/signup)
-- Profile management
-- Gig creation and management
-- (Add more features as they are implemented)
-
-## Technology Stack
-
-- **Frontend**: React, TailwindCSS, Vite
-- **Backend**: Express.js, Node.js
-- **Database**: PostgreSQL (hosted on Neon.tech)
-- **Authentication**: JWT (JSON Web Tokens)

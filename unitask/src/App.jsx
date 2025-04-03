@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContextValue';
 import PropTypes from 'prop-types';
+import { lazy, Suspense } from 'react';
 
 // Import components
 import LoginPage from './components/login';
@@ -17,6 +18,7 @@ import MarketplacePage from './components/marketplace';
 import GigDetails from "./components/gigs/GigDetails";
 import OrdersPage from './components/orders/OrdersPage';
 import OrderDetails from './components/orders/OrderDetails';
+import NotificationBanner from './components/NotificationBanner';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -135,7 +137,11 @@ const App = () => {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <Suspense fallback={<div className="min-h-screen flex justify-center items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        </div>}>
+          <AppRoutes />
+        </Suspense>
       </AuthProvider>
     </Router>
   );
