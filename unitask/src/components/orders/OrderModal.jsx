@@ -3,8 +3,9 @@ import { X, Calendar, DollarSign, CheckCircle, Shield, Clock, AlertCircle, Repea
 import { useAuth } from '../../context/AuthContextValue';
 import { API_URL } from '../../api/constants';
 import { useNavigate } from 'react-router-dom';
+import PropTypes from 'prop-types';
 
-const OrderModal = ({ gig, onClose }) => {
+const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(1);
@@ -90,7 +91,11 @@ const OrderModal = ({ gig, onClose }) => {
       const data = await response.json();
       
       if (data.success) {
-        navigate(`/orders/${data.order.id}`);
+        if (onOrderSuccess) {
+          onOrderSuccess(data.order);
+        } else {
+          navigate(`/orders/${data.order.id}`);
+        }
       } else {
         throw new Error(data.message || 'Failed to create order');
       }
@@ -351,6 +356,12 @@ const OrderModal = ({ gig, onClose }) => {
       </div>
     </div>
   );
+};
+
+OrderModal.propTypes = {
+  gig: PropTypes.object.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onOrderSuccess: PropTypes.func
 };
 
 export default OrderModal;

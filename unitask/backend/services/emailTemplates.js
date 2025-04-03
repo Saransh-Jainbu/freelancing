@@ -172,6 +172,36 @@ function orderConfirmationTemplate(order, seller) {
           font-weight: bold;
           color: #8b5cf6;
         }
+        .steps {
+          margin: 20px 0;
+        }
+        .step {
+          display: flex;
+          align-items: flex-start;
+          margin-bottom: 15px;
+        }
+        .step-number {
+          background-color: #8b5cf6;
+          color: white;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 10px;
+          flex-shrink: 0;
+        }
+        .step-content {
+          flex: 1;
+        }
+        .thank-you-box {
+          background: linear-gradient(to right, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1));
+          border-left: 4px solid #8b5cf6;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 0 5px 5px 0;
+        }
       </style>
     </head>
     <body>
@@ -191,7 +221,35 @@ function orderConfirmationTemplate(order, seller) {
           <p><strong>Expected delivery:</strong> ${order.delivery_time} days</p>
         </div>
         
-        <p>The seller has been notified. You will receive updates as your order progresses.</p>
+        <div class="thank-you-box">
+          <h3 style="margin-top: 0;">Your order has been successfully placed!</h3>
+          <p>The seller has been notified and will begin working on your order soon.</p>
+        </div>
+        
+        <h3>Next Steps:</h3>
+        <div class="steps">
+          <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <strong>Wait for seller acceptance</strong>
+              <p>The seller will review and accept your order soon.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <strong>Communicate with the seller</strong>
+              <p>Use the order chat to discuss requirements in detail.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <strong>Receive and review delivery</strong>
+              <p>You'll be notified when your order is delivered.</p>
+            </div>
+          </div>
+        </div>
         
         <a href="${process.env.FRONTEND_URL}/orders/${order.id}" class="button">View Your Order</a>
         

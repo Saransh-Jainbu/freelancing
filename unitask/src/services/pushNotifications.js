@@ -60,6 +60,37 @@ async function requestNotificationPermission() {
   }
 }
 
+// Function to request notification permission and handle user interaction
+async function requestNotificationPermissionWithContext() {
+  try {
+    if (!('Notification' in window)) {
+      console.log('This browser does not support desktop notification');
+      return 'denied';
+    }
+    
+    if (Notification.permission === 'granted') {
+      return 'granted';
+    }
+    
+    if (Notification.permission !== 'denied') {
+      // Show context before requesting permission
+      if (window.confirm(
+        'Enable notifications to receive order updates and messages instantly, even when browsing other sites. Would you like to enable notifications?'
+      )) {
+        const permission = await Notification.requestPermission();
+        return permission;
+      } else {
+        return 'dismissed'; // User dismissed the confirmation dialog
+      }
+    }
+    
+    return Notification.permission;
+  } catch (error) {
+    console.error('Error requesting notification permission:', error);
+    return 'denied';
+  }
+}
+
 // Subscribe to push notifications
 async function subscribeToPushNotifications(userId) {
   try {
@@ -175,10 +206,55 @@ async function unsubscribeFromPushNotifications(userId) {
   }
 }
 
+// Enhanced notification function with badge and sound
+function showLocalNotification(title, options = {}) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return false;
+  }
+  
+  try {
+    // Default notification options
+    const defaultOptions = {
+      icon: '/notification-icon.png',
+      badge: '/badge-icon.png',
+      vibrate: [200, 100, 200],
+      requireInteraction: options.requireInteraction || false,
+    };
+    
+    // Create and show the notification
+    const notification = new Notification(title, {
+      ...defaultOptions,
+      ...options
+    });
+    
+    // Handle click events
+    notification.onclick = function() {
+      window.focus();
+      if (options.onClick) {
+        options.onClick();
+      }
+      notification.close();
+    };
+    
+    // Play sound if specified
+    if (options.sound) {
+      const audio = new Audio(options.sound);
+      audio.play().catch(e => console.error('Error playing notification sound:', e));
+    }
+    
+    return notification;
+  } catch (error) {
+    console.error('Error showing notification:', error);
+    return false;
+  }
+}
+
 export {
   registerServiceWorker,
   isPushSupported,
   requestNotificationPermission,
+  requestNotificationPermissionWithContext, // Export the enhanced permission requester
   subscribeToPushNotifications,
-  unsubscribeFromPushNotifications
+  unsubscribeFromPushNotifications,
+  showLocalNotification // Export the enhanced notification function
 };

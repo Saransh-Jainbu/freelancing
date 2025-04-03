@@ -418,6 +418,9 @@ const GigDetails = () => {
         <OrderModal 
           gig={gig}
           onClose={() => setIsOrderModalOpen(false)}
+          onOrderSuccess={(order) => {
+            navigate('/order-confirmation', { state: { order } });
+          }}
         />
       )}
     </div>

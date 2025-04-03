@@ -21,6 +21,9 @@ import OrdersPage from './components/orders/OrdersPage';
 import OrderDetails from './components/orders/OrderDetails';
 import NotificationBanner from './components/NotificationBanner';
 
+// Import the new OrderConfirmation component
+const OrderConfirmation = lazy(() => import('./components/orders/OrderConfirmation'));
+
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -122,6 +125,13 @@ const AppRoutes = () => {
       <Route path="/orders/:orderId" element={
         <ProtectedRoute>
           <OrderDetails />
+        </ProtectedRoute>
+      } />
+
+      {/* Add the new route for order confirmation */}
+      <Route path="/order-confirmation" element={
+        <ProtectedRoute>
+          <OrderConfirmation />
         </ProtectedRoute>
       } />
       

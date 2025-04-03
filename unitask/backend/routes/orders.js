@@ -8,6 +8,7 @@ const {
   orderConfirmationTemplate,
   orderConfirmationTextTemplate
 } = require('../services/emailTemplates');
+const { sendPushNotification } = require('../routes/notifications');
 
 // Create new order
 router.post('/', async (req, res) => {
@@ -118,10 +119,27 @@ router.post('/', async (req, res) => {
         ]
       );
 
+      // Create notification record for the seller
+      const notificationResult = await query(
+        `INSERT INTO notifications (
+          user_id, type, title, message, reference_id, reference_type
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id`,
+        [
+          gig.freelancer_id,
+          'order',
+          'New Order Received',
+          `${buyer.display_name} placed a new order for "${gig.title}"`,
+          order.id,
+          'order'
+        ]
+      );
+
       await query('COMMIT');
 
-      // Send email notification to freelancer
       const orderWithTitle = { ...order, gig_title: gig.title };
+
+      // 1. Send email notification to freelancer (seller)
       sendEmail({
         to: gig.freelancer_email,
         subject: `New Order #${order.id} - UniTask`,
@@ -129,13 +147,22 @@ router.post('/', async (req, res) => {
         text: newOrderTextTemplate(orderWithTitle, buyer, { display_name: gig.freelancer_name })
       }).catch(err => console.error('Error sending seller email:', err));
 
-      // Send confirmation email to buyer
+      // 2. Send confirmation email to buyer
       sendEmail({
         to: buyer.email,
         subject: `Order Confirmation #${order.id} - UniTask`,
         html: orderConfirmationTemplate(orderWithTitle, { display_name: gig.freelancer_name }),
         text: orderConfirmationTextTemplate(orderWithTitle, { display_name: gig.freelancer_name })
       }).catch(err => console.error('Error sending buyer email:', err));
+
+      // 3. Send push notification to seller
+      sendPushNotification(
+        gig.freelancer_id,
+        'New Order Received',
+        `${buyer.display_name} just placed an order for "${gig.title}"`,
+        `${process.env.FRONTEND_URL}/orders/${order.id}`,
+        `new-order-${order.id}`
+      ).catch(err => console.error('Error sending push notification:', err));
 
       // Return success response
       res.status(201).json({
