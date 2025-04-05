@@ -195,8 +195,19 @@ const initDb = async () => {
         cancellation_requested_at TIMESTAMP WITH TIME ZONE,
         cancellation_approved_at TIMESTAMP WITH TIME ZONE,
         cancelled_at TIMESTAMP WITH TIME ZONE,
-        freelancer_response TEXT
+        freelancer_response TEXT,
+        started_at TIMESTAMP WITH TIME ZONE,
+        revision_requested_at TIMESTAMP WITH TIME ZONE,
+        revision_reason TEXT
       )
+    `);
+
+    // Add missing columns for order status management
+    await query(`
+      ALTER TABLE orders 
+      ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE,
+      ADD COLUMN IF NOT EXISTS revision_requested_at TIMESTAMP WITH TIME ZONE,
+      ADD COLUMN IF NOT EXISTS revision_reason TEXT
     `);
 
     // Order updates/revisions
