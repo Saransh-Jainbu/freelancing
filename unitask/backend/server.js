@@ -10,6 +10,8 @@ const socketIo = require('socket.io');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { pool, query } = require('./db');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
 
 // Conditionally import Azure Storage
 let azureStorage;
@@ -39,11 +41,31 @@ const io = socketIo(server, {
 
 // Middleware
 app.use(express.json());
+
+// Improve CORS configuration to properly support credentials
 app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://myunitask.xyz', 'https://www.myunitask.xyz'] 
+    : 'http://localhost:3000',
+  credentials: true, // This is important for cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Configure cookie parser to handle secure cookies
+app.use(cookieParser(process.env.COOKIE_SECRET || 'your-secret-key'));
+
+// Configure session if needed
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'session-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  }
 }));
 
 // Initialize passport

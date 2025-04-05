@@ -23,49 +23,34 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
+  // Check auth status when component mounts
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        // Check local storage first for cached user data
-        const cachedUser = localStorage.getItem('currentUser');
-        if (cachedUser) {
-          setCurrentUser(JSON.parse(cachedUser));
-        }
-
-        try {
-          // Try to verify with server
-          const response = await fetch(`${API_URL}/api/auth/verify`, {
-            credentials: 'include', // Include cookies for authentication
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              setCurrentUser(data.user);
-              localStorage.setItem('currentUser', JSON.stringify(data.user));
-            } else {
-              setCurrentUser(null);
-              localStorage.removeItem('currentUser');
-            }
-          } else {
-            // If server verification fails but we have cached user, keep them logged in
-            if (!cachedUser) {
-              setCurrentUser(null);
-              localStorage.removeItem('currentUser');
-            }
+        // Try server verification with credentials (cookies)
+        const response = await fetch(`${API_URL}/api/auth/verify`, {
+          method: 'GET',
+          credentials: 'include', // Important: include cookies in the request
+          headers: {
+            'Accept': 'application/json'
           }
-        } catch (error) {
-          console.error('Auth verification error:', error);
-          // Keep cached user on network errors
-          if (!cachedUser) {
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.user) {
+            setCurrentUser(data.user);
+          } else {
             setCurrentUser(null);
           }
+        } else {
+          // If server verification fails, user is not authenticated
+          setCurrentUser(null);
         }
+      } catch (error) {
+        console.error('Auth verification error:', error);
+        setCurrentUser(null);
       } finally {
         setLoading(false);
       }
@@ -92,9 +77,8 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Failed to login');
       }
 
-      if (data.success) {
+      if (data.success && data.user) {
         setCurrentUser(data.user);
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
         return data.user;
       } else {
         throw new Error(data.message || 'Failed to login');
@@ -106,18 +90,24 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch(`${API_URL}/api/auth/logout`, {
+      // Call logout endpoint to clear server-side session and cookies
+      const response = await fetch(`${API_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Accept': 'application/json'
         }
       });
+      
+      // Clear user from state regardless of server response
+      setCurrentUser(null);
+      
+      return response.ok;
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
+      // Still clear user from state on error
       setCurrentUser(null);
-      localStorage.removeItem('currentUser');
+      return false;
     }
   };
 
@@ -133,7 +123,7 @@ export const AuthProvider = ({ children }) => {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        credentials: 'include',
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify(profileData)
       });
 
@@ -144,9 +134,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Update the current user with the updated profile data
-      const updatedUser = { ...currentUser, ...profileData };
-      setCurrentUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      setCurrentUser(prev => ({ ...prev, ...profileData }));
       return data;
     } catch (error) {
       throw error;

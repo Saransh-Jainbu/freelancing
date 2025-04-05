@@ -1,14 +1,8 @@
-// Determine the API URL based on environment
-// For development, use local API
-// For production, use deployed API with fallback
-const determineApiUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://unitask-backend.onrender.com';
-  }
-  return 'http://localhost:5000';
-};
+// Determine API URL based on environment with appropriate CORS and cookie settings
+export const API_URL = process.env.NODE_ENV === 'production'
+  ? 'https://unitask-backend.onrender.com'
+  : 'http://localhost:5000';
 
-export const API_URL = determineApiUrl();
 export const API_BASE = `${API_URL}/api`;
 export const WS_URL = process.env.NODE_ENV === 'production'
   ? 'wss://unitask-backend.onrender.com'
