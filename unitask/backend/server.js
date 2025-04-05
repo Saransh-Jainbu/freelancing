@@ -190,7 +190,12 @@ const initDb = async () => {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP WITH TIME ZONE,
         payment_status VARCHAR(50) DEFAULT 'unpaid',
-        payment_details JSONB
+        payment_details JSONB,
+        cancellation_reason TEXT,
+        cancellation_requested_at TIMESTAMP WITH TIME ZONE,
+        cancellation_approved_at TIMESTAMP WITH TIME ZONE,
+        cancelled_at TIMESTAMP WITH TIME ZONE,
+        freelancer_response TEXT
       )
     `);
 
@@ -1630,6 +1635,259 @@ app.get('/api/orders/cancelled/seller/:sellerId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching cancelled orders:', error);
     res.status(500).json({ success: false, message: 'Server error fetching cancelled orders' });
+  }
+});
+
+// Request order cancellation (initiated by client)
+app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { buyerId, reason } = req.body;
+    
+    // First check if the order exists and belongs to this buyer
+    const orderCheck = await query(
+      'SELECT status, seller_id FROM orders WHERE id = $1 AND buyer_id = $2',
+      [orderId, buyerId]
+    );
+    
+    if (orderCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found or you are not authorized to request cancellation' 
+      });
+    }
+    
+    const currentStatus = orderCheck.rows[0].status;
+    const sellerId = orderCheck.rows[0].seller_id;
+    
+    // Check if order is in a status that allows cancellation requests
+    const allowedStatusForCancellation = ['pending', 'in_progress', 'verifying'];
+    if (!allowedStatusForCancellation.includes(currentStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cancellation cannot be requested when order is in ${currentStatus} status`
+      });
+    }
+    
+    // Update the order to cancellation_requested status
+    const result = await query(
+      `UPDATE orders 
+       SET status = 'cancellation_requested', 
+           cancellation_reason = $1,
+           cancellation_requested_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND buyer_id = $3
+       RETURNING *`,
+      [reason, orderId, buyerId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Could not update order status' 
+      });
+    }
+    
+    // Get buyer name for notification
+    const buyerResult = await query(
+      'SELECT display_name FROM users WHERE id = $1',
+      [buyerId]
+    );
+    
+    const buyerName = buyerResult.rows[0]?.display_name || 'The client';
+    
+    // Create notification for the freelancer
+    await query(
+      `INSERT INTO notifications (
+        user_id, type, title, message, reference_id, reference_type
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        sellerId,
+        'order_cancellation',
+        'Cancellation Request',
+        `${buyerName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+        orderId,
+        'order'
+      ]
+    );
+    
+    // Send notification via WebSocket
+    io.to(`user-${sellerId}`).emit('notification', {
+      type: 'order_cancellation',
+      title: 'Cancellation Request',
+      message: `${buyerName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+      reference_id: orderId,
+      reference_type: 'order'
+    });
+    
+    // Send push notification
+    sendPushNotification(
+      sellerId,
+      'Cancellation Request',
+      `${buyerName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+      `${FRONTEND_URL}/orders/${orderId}`,
+      `order-${orderId}`
+    );
+    
+    // Success - return the updated order
+    res.json({ 
+      success: true, 
+      order: result.rows[0],
+      message: 'Cancellation request sent to freelancer'
+    });
+  } catch (error) {
+    console.error('Error requesting order cancellation:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error requesting order cancellation' 
+    });
+  }
+});
+
+// Get orders with pending cancellation requests for a freelancer
+app.get('/api/orders/cancellation-requests/:sellerId', async (req, res) => {
+  try {
+    const sellerId = req.params.sellerId;
+    
+    const result = await query(
+      `SELECT o.*, g.title, u.display_name as buyer_name 
+       FROM orders o
+       JOIN gigs g ON o.gig_id = g.id
+       JOIN users u ON o.buyer_id = u.id
+       WHERE o.seller_id = $1 AND o.status = 'cancellation_requested'
+       ORDER BY o.cancellation_requested_at DESC`,
+      [sellerId]
+    );
+    
+    res.json({ success: true, orders: result.rows });
+  } catch (error) {
+    console.error('Error fetching cancellation requests:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error fetching cancellation requests' 
+    });
+  }
+});
+
+// Respond to cancellation request (approve or reject)
+app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { sellerId, approved, response } = req.body;
+    
+    // First check if the order exists and belongs to this seller
+    const orderCheck = await query(
+      'SELECT status, buyer_id FROM orders WHERE id = $1 AND seller_id = $2',
+      [orderId, sellerId]
+    );
+    
+    if (orderCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found or you are not authorized to respond to cancellation' 
+      });
+    }
+    
+    const currentStatus = orderCheck.rows[0].status;
+    const buyerId = orderCheck.rows[0].buyer_id;
+    
+    // Check if order is in cancellation_requested status
+    if (currentStatus !== 'cancellation_requested') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot respond to cancellation when order is in ${currentStatus} status`
+      });
+    }
+    
+    let result;
+    
+    if (approved) {
+      // If approved, update to cancelled status
+      result = await query(
+        `UPDATE orders 
+         SET status = 'cancelled', 
+             cancellation_approved_at = CURRENT_TIMESTAMP,
+             cancelled_at = CURRENT_TIMESTAMP,
+             freelancer_response = $1
+         WHERE id = $2 AND seller_id = $3
+         RETURNING *`,
+        [response || 'Cancellation approved', orderId, sellerId]
+      );
+    } else {
+      // If rejected, revert to previous status
+      result = await query(
+        `UPDATE orders 
+         SET status = CASE 
+                       WHEN completed_at IS NOT NULL THEN 'verifying'
+                       WHEN started_at IS NOT NULL THEN 'in_progress'
+                       ELSE 'pending'
+                     END,
+             freelancer_response = $1
+         WHERE id = $2 AND seller_id = $3
+         RETURNING *`,
+        [response || 'Cancellation rejected', orderId, sellerId]
+      );
+    }
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Could not update order status' 
+      });
+    }
+    
+    // Get seller name for notification
+    const sellerResult = await query(
+      'SELECT display_name FROM users WHERE id = $1',
+      [sellerId]
+    );
+    
+    const sellerName = sellerResult.rows[0]?.display_name || 'The freelancer';
+    
+    // Create notification for the buyer
+    await query(
+      `INSERT INTO notifications (
+        user_id, type, title, message, reference_id, reference_type
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        buyerId,
+        'order_status',
+        approved ? 'Cancellation Approved' : 'Cancellation Rejected',
+        `${sellerName} has ${approved ? 'approved' : 'rejected'} your cancellation request for order #${orderId}${response ? ': ' + response : ''}`,
+        orderId,
+        'order'
+      ]
+    );
+    
+    // Send notification via WebSocket
+    io.to(`user-${buyerId}`).emit('notification', {
+      type: 'order_status',
+      title: approved ? 'Cancellation Approved' : 'Cancellation Rejected',
+      message: `${sellerName} has ${approved ? 'approved' : 'rejected'} your cancellation request for order #${orderId}${response ? ': ' + response : ''}`,
+      reference_id: orderId,
+      reference_type: 'order'
+    });
+    
+    // Send push notification
+    sendPushNotification(
+      buyerId,
+      approved ? 'Cancellation Approved' : 'Cancellation Rejected',
+      `${sellerName} has ${approved ? 'approved' : 'rejected'} your cancellation request for order #${orderId}${response ? ': ' + response : ''}`,
+      `${FRONTEND_URL}/orders/${orderId}`,
+      `order-${orderId}`
+    );
+    
+    // Success - return the updated order
+    res.json({ 
+      success: true, 
+      order: result.rows[0],
+      message: `Cancellation ${approved ? 'approved' : 'rejected'}`
+    });
+  } catch (error) {
+    console.error('Error responding to cancellation request:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error responding to cancellation request' 
+    });
   }
 });
 
