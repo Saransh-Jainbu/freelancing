@@ -34,32 +34,37 @@ export const AuthProvider = ({ children }) => {
           setCurrentUser(JSON.parse(cachedUser));
         }
 
-        // Try to verify with server
-        const response = await fetch(`${API_URL}/api/auth/verify`, {
-          credentials: 'include' // Include cookies for authentication
-        });
+        try {
+          // Try to verify with server
+          const response = await fetch(`${API_URL}/api/auth/verify`, {
+            credentials: 'include', // Include cookies for authentication
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setCurrentUser(data.user);
-            localStorage.setItem('currentUser', JSON.stringify(data.user));
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setCurrentUser(data.user);
+              localStorage.setItem('currentUser', JSON.stringify(data.user));
+            } else {
+              setCurrentUser(null);
+              localStorage.removeItem('currentUser');
+            }
           } else {
-            setCurrentUser(null);
-            localStorage.removeItem('currentUser');
+            // If server verification fails but we have cached user, keep them logged in
+            if (!cachedUser) {
+              setCurrentUser(null);
+              localStorage.removeItem('currentUser');
+            }
           }
-        } else {
-          // If server verification fails but we have cached user, keep them logged in
+        } catch (error) {
+          console.error('Auth verification error:', error);
+          // Keep cached user on network errors
           if (!cachedUser) {
             setCurrentUser(null);
-            localStorage.removeItem('currentUser');
           }
-        }
-      } catch (error) {
-        console.error('Auth verification error:', error);
-        // Keep cached user on network errors
-        if (!localStorage.getItem('currentUser')) {
-          setCurrentUser(null);
         }
       } finally {
         setLoading(false);
@@ -74,7 +79,8 @@ export const AuthProvider = ({ children }) => {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({ email, password })
@@ -102,7 +108,10 @@ export const AuthProvider = ({ children }) => {
     try {
       await fetch(`${API_URL}/api/auth/logout`, {
         method: 'POST',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
       });
     } catch (error) {
       console.error('Logout error:', error);
@@ -121,7 +130,8 @@ export const AuthProvider = ({ children }) => {
       const response = await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify(profileData)
