@@ -1622,10 +1622,10 @@ app.get('/api/orders/cancelled/seller/:sellerId', async (req, res) => {
     const sellerId = req.params.sellerId;
     
     const result = await query(
-      `SELECT o.*, g.title, u.name as buyer_name 
+      `SELECT o.*, g.title, u.display_name as buyer_name 
        FROM orders o
        JOIN gigs g ON o.gig_id = g.id
-       JOIN users u ON o.buyer_id = u.id
+       JOIN users u ON o.client_id = u.id
        WHERE o.seller_id = $1 AND o.status = 'cancelled'
        ORDER BY o.cancelled_at DESC`,
       [sellerId]
@@ -1642,27 +1642,48 @@ app.get('/api/orders/cancelled/seller/:sellerId', async (req, res) => {
 app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
   try {
     const orderId = req.params.orderId;
-    const { buyerId, reason } = req.body;
+    const { clientId, reason } = req.body;
     
-    // First check if the order exists and belongs to this buyer
+    console.log(`[Server] Cancellation request for order ${orderId} by client ${clientId}, reason: ${reason}`);
+    
+    // First check if the order exists and belongs to this client
     const orderCheck = await query(
-      'SELECT status, seller_id FROM orders WHERE id = $1 AND buyer_id = $2',
-      [orderId, buyerId]
+      'SELECT status, seller_id, freelancer_id FROM orders WHERE id = $1',
+      [orderId]
     );
     
     if (orderCheck.rows.length === 0) {
+      console.log(`[Server] Order ${orderId} not found`);
       return res.status(404).json({ 
         success: false, 
-        message: 'Order not found or you are not authorized to request cancellation' 
+        message: 'Order not found' 
+      });
+    }
+
+    // Get client ID from the order
+    const clientIdCheck = await query(
+      'SELECT client_id FROM orders WHERE id = $1',
+      [orderId]
+    );
+    
+    // Check if this client is authorized to cancel this order
+    if (clientIdCheck.rows[0].client_id !== parseInt(clientId)) {
+      console.log(`[Server] Client ${clientId} is not authorized to cancel order ${orderId}, belongs to client ${clientIdCheck.rows[0].client_id}`);
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You are not authorized to cancel this order' 
       });
     }
     
     const currentStatus = orderCheck.rows[0].status;
-    const sellerId = orderCheck.rows[0].seller_id;
+    const sellerId = orderCheck.rows[0].seller_id || orderCheck.rows[0].freelancer_id;
+    
+    console.log(`[Server] Order ${orderId} current status: ${currentStatus}, seller: ${sellerId}`);
     
     // Check if order is in a status that allows cancellation requests
     const allowedStatusForCancellation = ['pending', 'in_progress', 'verifying'];
     if (!allowedStatusForCancellation.includes(currentStatus)) {
+      console.log(`[Server] Order ${orderId} cannot be cancelled in status ${currentStatus}`);
       return res.status(400).json({
         success: false,
         message: `Cancellation cannot be requested when order is in ${currentStatus} status`
@@ -1675,25 +1696,28 @@ app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
        SET status = 'cancellation_requested', 
            cancellation_reason = $1,
            cancellation_requested_at = CURRENT_TIMESTAMP
-       WHERE id = $2 AND buyer_id = $3
+       WHERE id = $2 AND client_id = $3
        RETURNING *`,
-      [reason, orderId, buyerId]
+      [reason, orderId, clientId]
     );
     
     if (result.rows.length === 0) {
+      console.log(`[Server] Failed to update order ${orderId} status`);
       return res.status(404).json({ 
         success: false, 
         message: 'Could not update order status' 
       });
     }
     
-    // Get buyer name for notification
-    const buyerResult = await query(
+    console.log(`[Server] Order ${orderId} updated to cancellation_requested successfully`);
+    
+    // Get client name for notification
+    const clientResult = await query(
       'SELECT display_name FROM users WHERE id = $1',
-      [buyerId]
+      [clientId]
     );
     
-    const buyerName = buyerResult.rows[0]?.display_name || 'The client';
+    const clientName = clientResult.rows[0]?.display_name || 'The client';
     
     // Create notification for the freelancer
     await query(
@@ -1704,7 +1728,7 @@ app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
         sellerId,
         'order_cancellation',
         'Cancellation Request',
-        `${buyerName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+        `${clientName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
         orderId,
         'order'
       ]
@@ -1714,7 +1738,7 @@ app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
     io.to(`user-${sellerId}`).emit('notification', {
       type: 'order_cancellation',
       title: 'Cancellation Request',
-      message: `${buyerName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+      message: `${clientName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
       reference_id: orderId,
       reference_type: 'order'
     });
@@ -1723,7 +1747,7 @@ app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
     sendPushNotification(
       sellerId,
       'Cancellation Request',
-      `${buyerName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+      `${clientName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
       `${FRONTEND_URL}/orders/${orderId}`,
       `order-${orderId}`
     );
@@ -1738,7 +1762,7 @@ app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
     console.error('Error requesting order cancellation:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Server error requesting order cancellation' 
+      message: 'Server error requesting order cancellation: ' + error.message 
     });
   }
 });
@@ -1752,8 +1776,8 @@ app.get('/api/orders/cancellation-requests/:sellerId', async (req, res) => {
       `SELECT o.*, g.title, u.display_name as buyer_name 
        FROM orders o
        JOIN gigs g ON o.gig_id = g.id
-       JOIN users u ON o.buyer_id = u.id
-       WHERE o.seller_id = $1 AND o.status = 'cancellation_requested'
+       JOIN users u ON o.client_id = u.id
+       WHERE (o.seller_id = $1 OR o.freelancer_id = $1) AND o.status = 'cancellation_requested'
        ORDER BY o.cancellation_requested_at DESC`,
       [sellerId]
     );
@@ -1776,7 +1800,7 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
     
     // First check if the order exists and belongs to this seller
     const orderCheck = await query(
-      'SELECT status, buyer_id FROM orders WHERE id = $1 AND seller_id = $2',
+      'SELECT status, client_id FROM orders WHERE id = $1 AND (seller_id = $2 OR freelancer_id = $2)',
       [orderId, sellerId]
     );
     
@@ -1788,7 +1812,7 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
     }
     
     const currentStatus = orderCheck.rows[0].status;
-    const buyerId = orderCheck.rows[0].buyer_id;
+    const clientId = orderCheck.rows[0].client_id;
     
     // Check if order is in cancellation_requested status
     if (currentStatus !== 'cancellation_requested') {
@@ -1808,7 +1832,7 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
              cancellation_approved_at = CURRENT_TIMESTAMP,
              cancelled_at = CURRENT_TIMESTAMP,
              freelancer_response = $1
-         WHERE id = $2 AND seller_id = $3
+         WHERE id = $2 AND (seller_id = $3 OR freelancer_id = $3)
          RETURNING *`,
         [response || 'Cancellation approved', orderId, sellerId]
       );
@@ -1822,7 +1846,7 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
                        ELSE 'pending'
                      END,
              freelancer_response = $1
-         WHERE id = $2 AND seller_id = $3
+         WHERE id = $2 AND (seller_id = $3 OR freelancer_id = $3)
          RETURNING *`,
         [response || 'Cancellation rejected', orderId, sellerId]
       );
@@ -1843,13 +1867,13 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
     
     const sellerName = sellerResult.rows[0]?.display_name || 'The freelancer';
     
-    // Create notification for the buyer
+    // Create notification for the client
     await query(
       `INSERT INTO notifications (
         user_id, type, title, message, reference_id, reference_type
       ) VALUES ($1, $2, $3, $4, $5, $6)`,
       [
-        buyerId,
+        clientId,
         'order_status',
         approved ? 'Cancellation Approved' : 'Cancellation Rejected',
         `${sellerName} has ${approved ? 'approved' : 'rejected'} your cancellation request for order #${orderId}${response ? ': ' + response : ''}`,
@@ -1859,7 +1883,7 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
     );
     
     // Send notification via WebSocket
-    io.to(`user-${buyerId}`).emit('notification', {
+    io.to(`user-${clientId}`).emit('notification', {
       type: 'order_status',
       title: approved ? 'Cancellation Approved' : 'Cancellation Rejected',
       message: `${sellerName} has ${approved ? 'approved' : 'rejected'} your cancellation request for order #${orderId}${response ? ': ' + response : ''}`,
@@ -1869,7 +1893,7 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
     
     // Send push notification
     sendPushNotification(
-      buyerId,
+      clientId,
       approved ? 'Cancellation Approved' : 'Cancellation Rejected',
       `${sellerName} has ${approved ? 'approved' : 'rejected'} your cancellation request for order #${orderId}${response ? ': ' + response : ''}`,
       `${FRONTEND_URL}/orders/${orderId}`,
@@ -1899,7 +1923,7 @@ app.put('/api/orders/:orderId/complete', async (req, res) => {
     
     // First check if the order exists and belongs to this seller
     const orderCheck = await query(
-      'SELECT status FROM orders WHERE id = $1 AND seller_id = $2',
+      'SELECT status FROM orders WHERE id = $1 AND (seller_id = $2 OR freelancer_id = $2)',
       [orderId, sellerId]
     );
     
@@ -1922,7 +1946,7 @@ app.put('/api/orders/:orderId/complete', async (req, res) => {
     const result = await query(
       `UPDATE orders 
        SET status = 'verifying', completed_at = CURRENT_TIMESTAMP
-       WHERE id = $1 AND seller_id = $2
+       WHERE id = $1 AND (seller_id = $2 OR freelancer_id = $2)
        RETURNING *`,
       [orderId, sellerId]
     );
