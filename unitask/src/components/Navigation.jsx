@@ -1,294 +1,292 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContextValue';
+import { useBreakpoints } from '../hooks/useMediaQuery';
+import { Menu, X, User, Bell, MessageSquare, ChevronDown } from 'lucide-react';
 import NotificationBell from './NotificationBell';
-import { 
-  Menu, X, Home, User, PanelLeft, Briefcase, Clipboard, 
-  LogOut, MessageSquare, Settings, ChevronDown, Wallet, Building
-} from 'lucide-react';
 
 const Navigation = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
-  const isLoggedIn = !!currentUser;
+  const [isOpen, setIsOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { isMobile } = useBreakpoints();
   
-  // Close mobile menu when route changes
+  // Close mobile menu when changing routes
   useEffect(() => {
     setIsOpen(false);
-  }, [location]);
+    setDropdownOpen(false);
+  }, [location.pathname]);
   
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const closeDropdowns = (e) => {
-      if (showUserDropdown && 
-          !e.target.closest('.user-dropdown-toggle') && 
-          !e.target.closest('.user-dropdown-menu')) {
-        setShowUserDropdown(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', closeDropdowns);
-    return () => {
-      document.removeEventListener('mousedown', closeDropdowns);
-    };
-  }, [showUserDropdown]);
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+  
+  const isFreelancer = currentUser?.user_type === 'freelancer';
+  const isBusiness = currentUser?.user_type === 'business';
   
   return (
-    <nav className="bg-black/80 backdrop-blur-md border-b border-white/10 text-white">
+    <nav className="bg-gray-900/80 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
+          {/* Logo and left nav */}
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
-              {/* Logo */}
-              <Link to="/" className="flex items-center gap-2">
-                <span className="bg-gradient-to-r from-purple-600 to-pink-600 h-8 w-8 rounded-lg"></span>
-                <span className="font-bold text-xl">UniTask</span>
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-pink-500">
+                UniTask
+              </span>
+            </Link>
+            
+            {/* Desktop Nav Links */}
+            <div className="hidden md:ml-8 md:flex md:items-center md:space-x-4">
+              <Link 
+                to="/gigs" 
+                className="px-3 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                Services
+              </Link>
+              <Link 
+                to="/projects" 
+                className="px-3 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                Projects
               </Link>
             </div>
           </div>
           
-          {/* Desktop navigation */}
-          <div className="hidden md:flex md:items-center md:space-x-4">
-            <Link to="/" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
-              Home
-            </Link>
-            <Link to="/gigs" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
-              Services
-            </Link>
-            <Link to="/projects" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
-              Projects
-            </Link>
-            {!isLoggedIn ? (
+          {/* Right side nav items */}
+          <div className="flex items-center">
+            {currentUser ? (
               <>
-                <Link to="/login" className="ml-4 px-4 py-2 rounded-md text-sm hover:bg-white/5 transition-colors">
-                  Login
-                </Link>
-                <Link to="/signup" className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-md text-sm hover:opacity-90 transition-opacity">
-                  Sign Up
-                </Link>
+                {/* Desktop Nav Links */}
+                <div className="hidden md:flex md:items-center md:space-x-1">
+                  {isFreelancer && (
+                    <Link
+                      to="/orders"
+                      className="p-2 text-gray-300 hover:text-white transition-colors"
+                    >
+                      Orders
+                    </Link>
+                  )}
+                  
+                  {isBusiness && (
+                    <Link
+                      to="/business/projects"
+                      className="p-2 text-gray-300 hover:text-white transition-colors"
+                    >
+                      My Projects
+                    </Link>
+                  )}
+                  
+                  <Link
+                    to="/chat"
+                    className="p-2 text-gray-300 hover:text-white transition-colors relative"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                  </Link>
+                  
+                  <NotificationBell />
+                  
+                  <div className="relative ml-3">
+                    <div>
+                      <button
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                        className="flex items-center text-sm rounded-full focus:outline-none"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-gray-800 flex items-center justify-center">
+                          {currentUser.avatarUrl ? (
+                            <img
+                              className="h-8 w-8 rounded-full object-cover"
+                              src={currentUser.avatarUrl}
+                              alt={currentUser.displayName}
+                            />
+                          ) : (
+                            <User className="w-4 h-4 text-gray-500" />
+                          )}
+                        </div>
+                        <ChevronDown className="w-4 h-4 ml-1 text-gray-400" />
+                      </button>
+                    </div>
+                    
+                    {dropdownOpen && (
+                      <div 
+                        className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 focus:outline-none"
+                      >
+                        <div className="px-4 py-2 border-b border-white/5">
+                          <p className="text-sm">{currentUser.displayName}</p>
+                          <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
+                        </div>
+                        <Link
+                          to="/dashboard"
+                          className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
+                        >
+                          Dashboard
+                        </Link>
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
+                        >
+                          Profile Settings
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 w-full text-left"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Mobile menu button */}
+                <div className="flex md:hidden">
+                  <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
+                  >
+                    {isOpen ? (
+                      <X className="block h-6 w-6" />
+                    ) : (
+                      <Menu className="block h-6 w-6" />
+                    )}
+                  </button>
+                </div>
               </>
             ) : (
               <>
-                {currentUser.user_type === 'business' ? (
-                  <Link to="/business/projects" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
-                    My Projects
-                  </Link>
-                ) : (
-                  <Link to="/orders" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
-                    Orders
-                  </Link>
-                )}
-                <Link to="/chat" className="px-3 py-2 rounded-md text-sm hover:bg-white/5">
-                  Messages
-                </Link>
-                <div className="ml-2">
-                  <NotificationBell />
-                </div>
-                <div className="relative">
-                  <button
-                    className="ml-2 flex items-center gap-2 user-dropdown-toggle"
-                    onClick={() => setShowUserDropdown(!showUserDropdown)}
+                <div className="hidden md:flex items-center space-x-2">
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
-                      {currentUser.avatarUrl ? (
-                        <img 
-                          src={currentUser.avatarUrl} 
-                          alt={currentUser.displayName || 'User'} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="w-4 h-4 text-gray-400" />
-                      )}
-                    </div>
-                    <ChevronDown className="w-4 h-4" />
+                    Log In
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+                
+                {/* Mobile menu button */}
+                <div className="flex md:hidden">
+                  <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
+                  >
+                    {isOpen ? (
+                      <X className="block h-6 w-6" />
+                    ) : (
+                      <Menu className="block h-6 w-6" />
+                    )}
                   </button>
-                  
-                  {showUserDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-white/10 rounded-lg shadow-lg user-dropdown-menu z-20">
-                      <div className="p-2 border-b border-white/10">
-                        <div className="font-medium">
-                          {currentUser.displayName || 'User'}
-                        </div>
-                        <div className="text-xs text-gray-400 truncate">
-                          {currentUser.email}
-                        </div>
-                      </div>
-                      <div className="py-1">
-                        <Link 
-                          to="/dashboard" 
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
-                        >
-                          <PanelLeft className="w-4 h-4" />
-                          Dashboard
-                        </Link>
-                        <Link 
-                          to="/profile" 
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
-                        >
-                          <Settings className="w-4 h-4" />
-                          Settings
-                        </Link>
-                        
-                        {currentUser.user_type === 'business' ? (
-                          <Link 
-                            to="/business/projects" 
-                            className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
-                          >
-                            <Building className="w-4 h-4" />
-                            Business Projects
-                          </Link>
-                        ) : (
-                          <>
-                            <Link 
-                              to="/orders" 
-                              className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
-                            >
-                              <Clipboard className="w-4 h-4" />
-                              Orders
-                            </Link>
-                            <Link 
-                              to={`/profile/${currentUser.id}`} 
-                              className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
-                            >
-                              <User className="w-4 h-4" />
-                              My Profile
-                            </Link>
-                          </>
-                        )}
-                        
-                        <Link 
-                          to="/chat" 
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          Messages
-                        </Link>
-                        
-                        <button 
-                          onClick={logout} 
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-white/5 text-sm w-full text-left text-red-400"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Logout
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </>
             )}
-          </div>
-          
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
-            {isLoggedIn && (
-              <>
-                <div className="mr-2">
-                  <NotificationBell />
-                </div>
-                <Link to="/chat" className="p-2 rounded-md text-sm hover:bg-white/5 mr-2">
-                  <MessageSquare className="w-5 h-5" />
-                </Link>
-              </>
-            )}
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-md hover:bg-white/5"
-            >
-              {isOpen ? <X /> : <Menu />}
-            </button>
           </div>
         </div>
       </div>
       
       {/* Mobile menu */}
       {isOpen && (
-        <div className="md:hidden border-t border-white/10">
+        <div className="md:hidden bg-gray-900 border-b border-white/10">
           <div className="px-2 pt-2 pb-3 space-y-1">
-            <Link 
-              to="/" 
-              className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+            <Link
+              to="/gigs"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+              onClick={() => setIsOpen(false)}
             >
-              <Home className="w-5 h-5" />
-              Home
-            </Link>
-            <Link 
-              to="/gigs" 
-              className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
-            >
-              <Briefcase className="w-5 h-5" />
               Services
             </Link>
-            <Link 
-              to="/projects" 
-              className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+            <Link
+              to="/projects"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+              onClick={() => setIsOpen(false)}
             >
-              <Clipboard className="w-5 h-5" />
               Projects
             </Link>
-
-            {isLoggedIn ? (
+            
+            {currentUser ? (
               <>
-                <Link 
-                  to="/dashboard" 
-                  className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
-                >
-                  <PanelLeft className="w-5 h-5" />
-                  Dashboard
-                </Link>
-                {currentUser.user_type === 'business' ? (
-                  <Link 
-                    to="/business/projects" 
-                    className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+                {isFreelancer && (
+                  <Link
+                    to="/orders"
+                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                    onClick={() => setIsOpen(false)}
                   >
-                    <Building className="w-5 h-5" />
-                    Business Projects
-                  </Link>
-                ) : (
-                  <Link 
-                    to="/orders" 
-                    className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
-                  >
-                    <Clipboard className="w-5 h-5" />
                     Orders
                   </Link>
                 )}
-                <Link 
-                  to="/profile" 
-                  className="block px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2"
+                
+                {isBusiness && (
+                  <Link
+                    to="/business/projects"
+                    className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    My Projects
+                  </Link>
+                )}
+                
+                <Link
+                  to="/chat"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                  onClick={() => setIsOpen(false)}
                 >
-                  <User className="w-5 h-5" />
-                  Profile
+                  Messages
                 </Link>
-                <button 
-                  onClick={logout} 
-                  className="block w-full text-left px-3 py-2 rounded-md hover:bg-white/5 text-red-400 flex items-center gap-2"
+                
+                <Link
+                  to="/dashboard"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                  onClick={() => setIsOpen(false)}
                 >
-                  <LogOut className="w-5 h-5" />
-                  Logout
+                  Dashboard
+                </Link>
+                
+                <Link
+                  to="/profile"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Profile Settings
+                </Link>
+                
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                >
+                  Sign out
                 </button>
               </>
             ) : (
               <>
-                <Link 
-                  to="/login" 
-                  className="block px-3 py-2 rounded-md hover:bg-white/5 border border-white/10 text-center"
+                <Link
+                  to="/login"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                  onClick={() => setIsOpen(false)}
                 >
-                  Login
+                  Log In
                 </Link>
-                <Link 
-                  to="/signup" 
-                  className="block px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-md text-center"
+                
+                <Link
+                  to="/signup"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                  onClick={() => setIsOpen(false)}
                 >
                   Sign Up
                 </Link>
-                <Link 
-                  to="/business-signup" 
-                  className="block px-3 py-2 rounded-md hover:bg-white/5 text-center text-sm"
+                
+                <Link
+                  to="/business-signup"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white"
+                  onClick={() => setIsOpen(false)}
                 >
-                  Register as a Business
+                  Business Sign Up
                 </Link>
               </>
             )}

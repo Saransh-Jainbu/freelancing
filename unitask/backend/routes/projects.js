@@ -400,35 +400,35 @@ router.post('/:projectId/award', async (req, res) => {
           bid.freelancer_id, 
           bidId, 
           bid.amount, 
-          new Date(Date.now() + bid.delivery_time * 24 * 60 * 60 * 1000) // Convert days to milliseconds
+          new Date(Date.now() + bid.delivery_time * 24 * 60 * 60 * 1000)
         ]
       );
       
       await query('COMMIT');
       
       // Send notification to freelancer
-      await sendPushNotification(
+      sendPushNotification(
         bid.freelancer_id,
-        'Project Awarded',
-        `Your bid on "${projectCheck.rows[0].title}" has been accepted!`,
-        `${process.env.FRONTEND_URL}/projects/${projectId}`,
-        `project-award-${projectId}`
-      );
+        'Congratulations! Your bid was accepted',
+        `Your proposal for "${projectCheck.rows[0].title}" has been accepted`,
+        `/projects/${projectId}`,
+        `bid-accepted-${bidId}`
+      ).catch(err => console.error('Error sending push notification:', err));
       
       // Send email notification
       sendEmail({
         to: bid.email,
-        subject: `Congratulations! Your bid was accepted for ${projectCheck.rows[0].title}`,
+        subject: `Your proposal for "${projectCheck.rows[0].title}" has been accepted`,
         html: `<p>Hello ${bid.display_name},</p>
-               <p>Great news! Your bid has been accepted for the project "${projectCheck.rows[0].title}".</p>
-               <p>Please login to your account to begin working on this project.</p>
-               <p><a href="${process.env.FRONTEND_URL}/projects/${projectId}">View Project Details</a></p>`
-      }).catch(err => console.error('Error sending email notification:', err));
+              <p>Congratulations! Your bid on the project "${projectCheck.rows[0].title}" has been accepted.</p>
+              <p>Please log in to your account to view the details and start working on the project.</p>
+              <p><a href="${process.env.FRONTEND_URL}/projects/${projectId}">View Project</a></p>`
+      }).catch(err => console.error('Error sending email:', err));
       
       res.json({
         success: true,
-        awardId: awardResult.rows[0].id,
-        message: 'Project awarded successfully'
+        message: 'Project awarded successfully',
+        awardId: awardResult.rows[0].id
       });
     } catch (error) {
       await query('ROLLBACK');

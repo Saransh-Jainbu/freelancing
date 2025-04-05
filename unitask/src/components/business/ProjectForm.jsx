@@ -239,7 +239,7 @@ const ProjectForm = ({ existingProject = null, onSuccess }) => {
             {skills.map(skill => (
               <div 
                 key={skill} 
-                className="bg-purple-900/50 border border-purple-500/30 text-purple-300 rounded-full px-3 py-1 text-sm flex items-center"
+                className="bg-purple-900/30 border border-purple-500/30 text-purple-300 rounded-full px-3 py-1 text-sm flex items-center"
               >
                 {skill}
                 <button 

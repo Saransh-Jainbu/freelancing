@@ -1,59 +1,64 @@
 import { useState, useEffect } from 'react';
 
-/**
- * Custom hook for responsive design that listens to CSS media queries
- * @param {string} query - The CSS media query to match against
- * @returns {boolean} - Whether the media query matches
- */
-const useMediaQuery = (query) => {
-  // Initialize with the current match state
-  const getMatches = (mediaQuery) => {
-    // Check if window is defined (to support SSR)
-    if (typeof window !== 'undefined') {
-      return window.matchMedia(mediaQuery).matches;
-    }
-    return false;
-  };
-  
-  const [matches, setMatches] = useState(getMatches(query));
+// Custom hook to handle responsive design
+export const useMediaQuery = () => {
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   
   useEffect(() => {
-    // Check if window is defined (to support SSR)
-    if (typeof window === 'undefined') return;
-    
-    const mediaQuery = window.matchMedia(query);
-    
-    // Update matches state based on the query result
-    const updateMatches = () => setMatches(mediaQuery.matches);
-    
-    // Call once to set initial value
-    updateMatches();
-    
-    // Add listener for changes
-    mediaQuery.addEventListener('change', updateMatches);
-    
-    // Clean up
-    return () => {
-      mediaQuery.removeEventListener('change', updateMatches);
+    // Update width on window resize
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
     };
-  }, [query]);
+    
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+    
+    // Remove event listener on cleanup
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
-  return matches;
+  // Return some common breakpoints
+  return {
+    isMobile: windowWidth < 768, // < 768px
+    isTablet: windowWidth >= 768 && windowWidth < 1024, // 768px - 1023px
+    isDesktop: windowWidth >= 1024, // >= 1024px
+    width: windowWidth
+  };
 };
 
-// Common breakpoint helpers based on Tailwind CSS defaults
+// Create breakpoint-specific hooks
+export const useIsMobile = () => {
+  const { isMobile } = useMediaQuery();
+  return isMobile;
+};
+
+export const useIsTablet = () => {
+  const { isTablet } = useMediaQuery();
+  return isTablet;
+};
+
+export const useIsDesktop = () => {
+  const { isDesktop } = useMediaQuery();
+  return isDesktop;
+};
+
+// Hook to check if width is at least a certain breakpoint
+export const useBreakpointAtLeast = (breakpoint) => {
+  const { width } = useMediaQuery();
+  
+  const breakpoints = {
+    sm: 640,
+    md: 768,
+    lg: 1024,
+    xl: 1280,
+    '2xl': 1536
+  };
+  
+  return width >= (breakpoints[breakpoint] || 0);
+};
+
+// Export the useBreakpoints hook that's being imported in Navigation.jsx
 export const useBreakpoints = () => {
-  const isSm = useMediaQuery('(min-width: 640px)');
-  const isMd = useMediaQuery('(min-width: 768px)');
-  const isLg = useMediaQuery('(min-width: 1024px)');
-  const isXl = useMediaQuery('(min-width: 1280px)');
-  const is2xl = useMediaQuery('(min-width: 1536px)');
-  
-  const isMobile = !isSm;
-  const isTablet = isMd && !isLg;
-  const isDesktop = isLg;
-  
-  return { isSm, isMd, isLg, isXl, is2xl, isMobile, isTablet, isDesktop };
+  const { isMobile, isTablet, isDesktop, width } = useMediaQuery();
+  return { isMobile, isTablet, isDesktop, width };
 };
-
-export default useMediaQuery;

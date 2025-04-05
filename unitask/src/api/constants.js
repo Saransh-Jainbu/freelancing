@@ -1,11 +1,55 @@
-// Base API URL for backend requests
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Central place to define important constants used throughout the app
+export const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://unitask-backend.onrender.com' 
+  : 'http://localhost:5000';
 
-// WebSocket URL for real-time communication
-export const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
+export const API_BASE = `${API_URL}/api`;
+export const WS_URL = process.env.NODE_ENV === 'production'
+  ? 'wss://unitask-backend.onrender.com'
+  : 'ws://localhost:5000';
 
-// Storage URLs for uploaded content
-export const STORAGE_URL = import.meta.env.VITE_STORAGE_URL || 'https://unitaskstorage.blob.core.windows.net';
+// Project categories for filtering and display
+export const PROJECT_CATEGORIES = [
+  { value: 'web-development', label: 'Web Development' },
+  { value: 'mobile-development', label: 'Mobile Development' },
+  { value: 'design', label: 'Design' },
+  { value: 'writing', label: 'Writing & Translation' },
+  { value: 'video', label: 'Video & Animation' },
+  { value: 'music', label: 'Music & Audio' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'business', label: 'Business' },
+  { value: 'data', label: 'Data Science & Analytics' },
+  { value: 'other', label: 'Other' }
+];
+
+// Pagination defaults
+export const PAGINATION = {
+  ITEMS_PER_PAGE: 10,
+  MAX_PAGES_DISPLAYED: 5
+};
+
+// Project statuses
+export const PROJECT_STATUS = {
+  OPEN: 'open',
+  AWARDED: 'awarded',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+};
+
+// Bid statuses
+export const BID_STATUS = {
+  PENDING: 'pending',
+  ACCEPTED: 'accepted',
+  REJECTED: 'rejected',
+  WITHDRAWN: 'withdrawn'
+};
+
+// User types
+export const USER_TYPES = {
+  FREELANCER: 'freelancer',
+  BUSINESS: 'business',
+  ADMIN: 'admin'
+};
 
 // API endpoints
 export const ENDPOINTS = {
