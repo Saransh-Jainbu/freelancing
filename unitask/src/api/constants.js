@@ -1,4 +1,4 @@
-// Central place to define important constants used throughout the app
+// Use localhost for development to fix the 404 error on the verify endpoint
 export const API_URL = process.env.NODE_ENV === 'production' 
   ? 'https://unitask-backend.onrender.com' 
   : 'http://localhost:5000';

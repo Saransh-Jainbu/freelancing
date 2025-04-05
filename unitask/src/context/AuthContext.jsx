@@ -1,8 +1,18 @@
-import { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
 import PropTypes from 'prop-types';
 import { API_URL } from '../api/constants';
 
-export const AuthContext = createContext();
+// Create the Auth Context
+export const AuthContext = createContext(null);
+
+// Custom hook to use the auth context
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -95,7 +105,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Update the current user with the updated profile data
-    setCurrentUser({ ...currentUser, ...profileData });
+    setCurrentUser(prev => ({ ...prev, ...profileData }));
     return data;
   };
 

@@ -9,3 +9,8 @@ export const useAuth = () => {
   }
   return context;
 };
+
+import { useAuth } from './AuthContext';
+
+// Re-export the hook for easier imports 
+export { useAuth };
