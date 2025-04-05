@@ -1915,6 +1915,167 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
   }
 });
 
+// Add a new endpoint for updating order status
+app.put('/api/orders/:orderId/status', async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { status, userId } = req.body;
+    
+    console.log(`[Server] Updating order ${orderId} to status ${status} by user ${userId}`);
+    
+    if (!orderId || !status || !userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields: orderId, status, or userId' 
+      });
+    }
+    
+    // First check if the order exists
+    const orderCheck = await query(
+      'SELECT client_id, seller_id, freelancer_id, status as current_status FROM orders WHERE id = $1',
+      [orderId]
+    );
+    
+    if (orderCheck.rows.length === 0) {
+      console.log(`[Server] Order ${orderId} not found`);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found' 
+      });
+    }
+    
+    const order = orderCheck.rows[0];
+    const isSeller = order.seller_id === parseInt(userId) || order.freelancer_id === parseInt(userId);
+    const isClient = order.client_id === parseInt(userId);
+    
+    // Check if user is authorized to update this order
+    if (!isSeller && !isClient) {
+      console.log(`[Server] User ${userId} not authorized for order ${orderId}`);
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to update this order' 
+      });
+    }
+    
+    // Define valid status transitions
+    const validTransitions = {
+      'pending': ['in_progress', 'cancellation_requested'],
+      'in_progress': ['verifying', 'cancellation_requested'],
+      'verifying': ['completed', 'cancellation_requested', 'revision_requested'],
+      'completed': [],
+      'cancelled': [],
+      'cancellation_requested': ['cancelled', 'pending', 'in_progress', 'verifying'],
+      'revision_requested': ['in_progress']
+    };
+    
+    // Check if the status transition is valid
+    if (!validTransitions[order.current_status]?.includes(status)) {
+      console.log(`[Server] Invalid status transition from ${order.current_status} to ${status}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot change status from ${order.current_status} to ${status}` 
+      });
+    }
+    
+    // Additional timestamp fields to update based on new status
+    let additionalFields = '';
+    
+    if (status === 'in_progress') {
+      additionalFields = ', started_at = CURRENT_TIMESTAMP';
+    } else if (status === 'verifying') {
+      additionalFields = ', completed_at = CURRENT_TIMESTAMP';
+    } else if (status === 'completed') {
+      additionalFields = ', completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)';
+    } else if (status === 'cancelled') {
+      additionalFields = ', cancelled_at = CURRENT_TIMESTAMP';
+    } else if (status === 'cancellation_requested') {
+      additionalFields = ', cancellation_requested_at = CURRENT_TIMESTAMP';
+    }
+    
+    // Update the order status
+    const result = await query(
+      `UPDATE orders 
+       SET status = $1, 
+           updated_at = CURRENT_TIMESTAMP
+           ${additionalFields}
+       WHERE id = $2
+       RETURNING *`,
+      [status, orderId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to update order status' 
+      });
+    }
+    
+    // Get user names for notification
+    const userResult = await query(
+      'SELECT id, display_name FROM users WHERE id IN ($1, $2)',
+      [order.client_id, isSeller ? userId : order.seller_id || order.freelancer_id]
+    );
+    
+    const users = {};
+    userResult.rows.forEach(user => {
+      users[user.id] = user.display_name;
+    });
+    
+    const clientName = users[order.client_id] || 'Client';
+    const sellerName = users[order.seller_id || order.freelancer_id] || 'Freelancer';
+    
+    // Determine who to notify
+    const notifyUserId = isSeller ? order.client_id : (order.seller_id || order.freelancer_id);
+    const actorName = isSeller ? sellerName : clientName;
+    
+    // Create notification about status change
+    await query(
+      `INSERT INTO notifications (
+        user_id, type, title, message, reference_id, reference_type
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        notifyUserId,
+        'order_status',
+        `Order Status Updated`,
+        `${actorName} has updated order #${orderId} status to ${status}`,
+        orderId,
+        'order'
+      ]
+    );
+    
+    // Send notification via WebSocket
+    io.to(`user-${notifyUserId}`).emit('notification', {
+      type: 'order_status',
+      title: `Order Status Updated`,
+      message: `${actorName} has updated order #${orderId} status to ${status}`,
+      reference_id: orderId,
+      reference_type: 'order'
+    });
+    
+    // Send push notification
+    sendPushNotification(
+      notifyUserId,
+      `Order Status Updated`,
+      `${actorName} has updated order #${orderId} status to ${status}`,
+      `${FRONTEND_URL}/orders/${orderId}`,
+      `order-${orderId}`
+    );
+    
+    // Success - return the updated order
+    console.log(`[Server] Successfully updated order ${orderId} to status ${status}`);
+    res.json({ 
+      success: true, 
+      order: result.rows[0] 
+    });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error updating order status: ' + error.message 
+    });
+  }
+});
+
 // Update the complete order endpoint to check for cancelled status
 app.put('/api/orders/:orderId/complete', async (req, res) => {
   try {
