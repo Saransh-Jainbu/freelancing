@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContextValue';
 import { getUserGigs, deleteGig } from '../../api/gigs';
-import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader, Star, DollarSign, Calendar, AlertCircle, CheckCircle, MessageSquare } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader, Star, DollarSign, Calendar, AlertCircle, CheckCircle, MessageSquare, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import NewGigModal from './NewGigModal';
@@ -21,6 +21,8 @@ const MyGigs = () => {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [completedOrders, setCompletedOrders] = useState([]);
   const [currentOrder, setCurrentOrder] = useState(null);
+  const [verifyingOrders, setVerifyingOrders] = useState([]);
+  const [userRating, setUserRating] = useState(0);
 
   useEffect(() => {
     const loadGigs = async () => {
@@ -35,6 +37,12 @@ const MyGigs = () => {
         
         // Check if there are any orders to review
         checkCompletedOrders();
+        
+        // Get user rating
+        fetchUserRating();
+        
+        // Check for orders in verifying state
+        checkVerifyingOrders();
       } catch (error) {
         console.error("Error loading gigs:", error);
         setError("Failed to load your gigs. Please try again.");
@@ -45,6 +53,32 @@ const MyGigs = () => {
 
     loadGigs();
   }, [currentUser]);
+  
+  // Fetch user rating
+  const fetchUserRating = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/users/${currentUser.id}/rating`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserRating(data.rating || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching user rating:", error);
+    }
+  };
+  
+  // Check for orders in verifying state (when you're the seller)
+  const checkVerifyingOrders = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/orders/verifying/seller/${currentUser.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setVerifyingOrders(data.orders || []);
+      }
+    } catch (error) {
+      console.error("Error checking verifying orders:", error);
+    }
+  };
   
   // New function to check for completed orders that need review
   const checkCompletedOrders = async () => {
@@ -92,6 +126,9 @@ const MyGigs = () => {
           setIsReviewModalOpen(false);
           setCurrentOrder(null);
         }
+        
+        // Update the freelancer's rating in the dashboard
+        fetchUserRating();
       }
     } catch (error) {
       console.error("Error submitting review:", error);
@@ -99,19 +136,28 @@ const MyGigs = () => {
     }
   };
 
-  // Function to skip the current review
-  const handleSkipReview = () => {
-    // Remove the current order from the list without submitting a review
-    setCompletedOrders(prevOrders => 
-      prevOrders.filter(order => order.id !== currentOrder.id)
-    );
-    
-    // If there are more orders to review, show the next one
-    if (completedOrders.length > 1) {
-      setCurrentOrder(completedOrders[1]);
-    } else {
-      setIsReviewModalOpen(false);
-      setCurrentOrder(null);
+  // Function to mark an order as completed (when you're the freelancer)
+  const markOrderAsCompleted = async (orderId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/orders/${orderId}/complete`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sellerId: currentUser.id,
+        })
+      });
+      
+      if (response.ok) {
+        // Update the verifying orders list
+        checkVerifyingOrders();
+      } else {
+        setError("Failed to mark order as completed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error marking order as completed:", error);
+      setError("Failed to mark order as completed. Please try again.");
     }
   };
 
@@ -238,19 +284,55 @@ const MyGigs = () => {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">My Gigs</h1>
             <p className="text-gray-400 mt-1">Manage and monitor your services</p>
           </div>
-          <button 
-            onClick={() => setIsNewGigModalOpen(true)}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-purple-500/20"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Create Gig</span>
-          </button>
+          <div className="flex items-center gap-4">
+            {/* Display user rating */}
+            {userRating > 0 && (
+              <div className="bg-white/5 px-4 py-2 rounded-lg flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-400" fill="currentColor" />
+                <span className="font-medium">{userRating.toFixed(1)}</span>
+              </div>
+            )}
+            <button 
+              onClick={() => setIsNewGigModalOpen(true)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-purple-500/20"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Create Gig</span>
+            </button>
+          </div>
         </div>
         
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 flex items-start gap-3 text-red-200">
             <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
             <p>{error}</p>
+          </div>
+        )}
+        
+        {/* Display orders in verifying state */}
+        {verifyingOrders.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Orders Awaiting Client Verification</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {verifyingOrders.map(order => (
+                <div key={order.id} className="bg-gradient-to-br from-amber-900/30 to-amber-800/20 backdrop-blur-sm rounded-xl border border-amber-500/20 p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-5 h-5 text-amber-400" />
+                        <span className="font-medium">Order #{order.id}</span>
+                      </div>
+                      <h3 className="text-lg font-medium mb-1">{order.title || "Order"}</h3>
+                      <p className="text-sm text-gray-400">Client: {order.buyer_name}</p>
+                      <p className="text-sm text-gray-400">Marked completed on: {new Date(order.completed_date).toLocaleDateString()}</p>
+                    </div>
+                    <div className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm">
+                      Awaiting Verification
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         
