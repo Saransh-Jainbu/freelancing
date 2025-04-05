@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContextValue';
 import { getUserGigs, deleteGig } from '../../api/gigs';
-import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader, Star, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader, Star, DollarSign, Calendar, AlertCircle, CheckCircle, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import NewGigModal from './NewGigModal';
 import EditGigModal from './EditGigModal';
 import { API_URL } from '../../constants';
+import ReviewOrderModal from './ReviewOrderModal'; // We'll create this component
 
 const MyGigs = () => {
   const { currentUser } = useAuth();
@@ -17,6 +18,9 @@ const MyGigs = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [currentGig, setCurrentGig] = useState(null);
   const [actionMenuOpen, setActionMenuOpen] = useState(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [completedOrders, setCompletedOrders] = useState([]);
+  const [currentOrder, setCurrentOrder] = useState(null);
 
   useEffect(() => {
     const loadGigs = async () => {
@@ -28,6 +32,9 @@ const MyGigs = () => {
         const userGigs = await getUserGigs(currentUser.id);
         setGigs(userGigs);
         setError('');
+        
+        // Check if there are any orders to review
+        checkCompletedOrders();
       } catch (error) {
         console.error("Error loading gigs:", error);
         setError("Failed to load your gigs. Please try again.");
@@ -38,6 +45,75 @@ const MyGigs = () => {
 
     loadGigs();
   }, [currentUser]);
+  
+  // New function to check for completed orders that need review
+  const checkCompletedOrders = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/orders/completed/${currentUser.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCompletedOrders(data.orders || []);
+        
+        // If there are completed orders without reviews, show the modal for the first one
+        if (data.orders && data.orders.length > 0) {
+          setCurrentOrder(data.orders[0]);
+          setIsReviewModalOpen(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking completed orders:", error);
+    }
+  };
+  
+  // Function to handle when a review is submitted
+  const handleReviewSubmitted = async (reviewData) => {
+    try {
+      const response = await fetch(`${API_URL}/api/orders/${currentOrder.id}/review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          ...reviewData
+        })
+      });
+      
+      if (response.ok) {
+        // Remove the reviewed order from the list
+        setCompletedOrders(prevOrders => 
+          prevOrders.filter(order => order.id !== currentOrder.id)
+        );
+        
+        // If there are more orders to review, show the next one
+        if (completedOrders.length > 1) {
+          setCurrentOrder(completedOrders[1]);
+        } else {
+          setIsReviewModalOpen(false);
+          setCurrentOrder(null);
+        }
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      setError("Failed to submit review. Please try again.");
+    }
+  };
+
+  // Function to skip the current review
+  const handleSkipReview = () => {
+    // Remove the current order from the list without submitting a review
+    setCompletedOrders(prevOrders => 
+      prevOrders.filter(order => order.id !== currentOrder.id)
+    );
+    
+    // If there are more orders to review, show the next one
+    if (completedOrders.length > 1) {
+      setCurrentOrder(completedOrders[1]);
+    } else {
+      setIsReviewModalOpen(false);
+      setCurrentOrder(null);
+    }
+  };
 
   const handleEditGig = (gig) => {
     setCurrentGig(gig);
@@ -131,6 +207,29 @@ const MyGigs = () => {
           gig={currentGig}
           onGigUpdated={handleGigUpdated}
         />
+      )}
+      
+      {isReviewModalOpen && currentOrder && (
+        <ReviewOrderModal
+          isOpen={isReviewModalOpen}
+          onClose={() => setIsReviewModalOpen(false)}
+          order={currentOrder}
+          onSubmitReview={handleReviewSubmitted}
+          onSkip={handleSkipReview}
+        />
+      )}
+      
+      {/* Badge showing pending reviews if any */}
+      {completedOrders.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-10">
+          <button 
+            onClick={() => setIsReviewModalOpen(true)}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3 rounded-full flex items-center gap-2 shadow-lg hover:shadow-purple-500/20 transition-all"
+          >
+            <Star className="w-5 h-5 text-yellow-300" fill="currentColor" />
+            <span>{completedOrders.length} Review{completedOrders.length !== 1 ? 's' : ''} Pending</span>
+          </button>
+        </div>
       )}
       
       <div className="max-w-7xl mx-auto">
