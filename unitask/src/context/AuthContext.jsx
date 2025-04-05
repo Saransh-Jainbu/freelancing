@@ -2,8 +2,14 @@ import { createContext, useState, useEffect, useContext } from 'react';
 import PropTypes from 'prop-types';
 import { API_URL } from '../api/constants';
 
-// Create the Auth Context
-export const AuthContext = createContext(null);
+// Create the Auth Context with a default value
+export const AuthContext = createContext({
+  currentUser: null,
+  loading: true,
+  login: () => Promise.resolve(),
+  logout: () => Promise.resolve(),
+  updateProfile: () => Promise.resolve()
+});
 
 // Custom hook to use the auth context
 export const useAuth = () => {
@@ -22,6 +28,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
+        // Check local storage first for cached user data
+        const cachedUser = localStorage.getItem('currentUser');
+        if (cachedUser) {
+          setCurrentUser(JSON.parse(cachedUser));
+        }
+
+        // Try to verify with server
         const response = await fetch(`${API_URL}/api/auth/verify`, {
           credentials: 'include' // Include cookies for authentication
         });
@@ -30,15 +43,24 @@ export const AuthProvider = ({ children }) => {
           const data = await response.json();
           if (data.success) {
             setCurrentUser(data.user);
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
           } else {
             setCurrentUser(null);
+            localStorage.removeItem('currentUser');
           }
         } else {
-          setCurrentUser(null);
+          // If server verification fails but we have cached user, keep them logged in
+          if (!cachedUser) {
+            setCurrentUser(null);
+            localStorage.removeItem('currentUser');
+          }
         }
       } catch (error) {
         console.error('Auth verification error:', error);
-        setCurrentUser(null);
+        // Keep cached user on network errors
+        if (!localStorage.getItem('currentUser')) {
+          setCurrentUser(null);
+        }
       } finally {
         setLoading(false);
       }
@@ -48,26 +70,31 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include', // Include cookies for authentication
-      body: JSON.stringify({ email, password })
-    });
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify({ email, password })
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to login');
-    }
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to login');
+      }
 
-    if (data.success) {
-      setCurrentUser(data.user);
-      return data.user;
-    } else {
-      throw new Error(data.message || 'Failed to login');
+      if (data.success) {
+        setCurrentUser(data.user);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        return data.user;
+      } else {
+        throw new Error(data.message || 'Failed to login');
+      }
+    } catch (error) {
+      throw error;
     }
   };
 
@@ -81,6 +108,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       setCurrentUser(null);
+      localStorage.removeItem('currentUser');
     }
   };
 
@@ -89,24 +117,30 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Not authenticated');
     }
 
-    const response = await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify(profileData)
-    });
+    try {
+      const response = await fetch(`${API_URL}/api/profile/${currentUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(profileData)
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to update profile');
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+
+      // Update the current user with the updated profile data
+      const updatedUser = { ...currentUser, ...profileData };
+      setCurrentUser(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      return data;
+    } catch (error) {
+      throw error;
     }
-
-    // Update the current user with the updated profile data
-    setCurrentUser(prev => ({ ...prev, ...profileData }));
-    return data;
   };
 
   const value = {
