@@ -3,6 +3,20 @@
 // Mark an order as completed by the freelancer (sets status to 'verifying')
 export const markOrderAsCompleted = async (orderId, sellerId) => {
   try {
+    // First check if the order status allows completion
+    const orderResponse = await fetch(`${API_URL}/api/orders/${orderId}`);
+    
+    if (!orderResponse.ok) {
+      throw new Error(`Failed to fetch order: ${orderResponse.status} ${orderResponse.statusText}`);
+    }
+    
+    const orderData = await orderResponse.json();
+    
+    // Prevent actions on cancelled orders
+    if (orderData.order.status === 'cancelled') {
+      throw new Error('This order has been cancelled and cannot be updated.');
+    }
+    
     const response = await fetch(`${API_URL}/api/orders/${orderId}/complete`, {
       method: 'PUT',
       headers: {
@@ -12,7 +26,8 @@ export const markOrderAsCompleted = async (orderId, sellerId) => {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to mark order as completed: ${response.status} ${response.statusText}`);
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Failed to mark order as completed: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
@@ -93,6 +108,23 @@ export const getUserRating = async (userId) => {
     return data.rating;
   } catch (error) {
     console.error('Error fetching user rating:', error);
+    throw error;
+  }
+};
+
+// Get cancelled orders for a seller
+export const getCancelledOrders = async (sellerId) => {
+  try {
+    const response = await fetch(`${API_URL}/api/orders/cancelled/seller/${sellerId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch cancelled orders: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.orders;
+  } catch (error) {
+    console.error('Error fetching cancelled orders:', error);
     throw error;
   }
 };

@@ -1610,3 +1610,73 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
     });
   }
 });
+
+// Get cancelled orders for a seller
+app.get('/api/orders/cancelled/seller/:sellerId', async (req, res) => {
+  try {
+    const sellerId = req.params.sellerId;
+    
+    const result = await query(
+      `SELECT o.*, g.title, u.name as buyer_name 
+       FROM orders o
+       JOIN gigs g ON o.gig_id = g.id
+       JOIN users u ON o.buyer_id = u.id
+       WHERE o.seller_id = $1 AND o.status = 'cancelled'
+       ORDER BY o.cancelled_at DESC`,
+      [sellerId]
+    );
+    
+    res.json({ success: true, orders: result.rows });
+  } catch (error) {
+    console.error('Error fetching cancelled orders:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching cancelled orders' });
+  }
+});
+
+// Update the complete order endpoint to check for cancelled status
+app.put('/api/orders/:orderId/complete', async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { sellerId } = req.body;
+    
+    // First check if the order exists and belongs to this seller
+    const orderCheck = await query(
+      'SELECT status FROM orders WHERE id = $1 AND seller_id = $2',
+      [orderId, sellerId]
+    );
+    
+    if (orderCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found or you are not authorized to update it' 
+      });
+    }
+    
+    // Check if order is already cancelled
+    if (orderCheck.rows[0].status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'This order has been cancelled and cannot be updated'
+      });
+    }
+    
+    // Update the order to verifying status
+    const result = await query(
+      `UPDATE orders 
+       SET status = 'verifying', completed_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND seller_id = $2
+       RETURNING *`,
+      [orderId, sellerId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Could not update order status' });
+    }
+    
+    // Success - return the updated order
+    res.json({ success: true, order: result.rows[0] });
+  } catch (error) {
+    console.error('Error completing order:', error);
+    res.status(500).json({ success: false, message: 'Server error completing order' });
+  }
+});

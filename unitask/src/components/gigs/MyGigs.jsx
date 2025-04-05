@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContextValue';
 import { getUserGigs, deleteGig } from '../../api/gigs';
-import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader, Star, DollarSign, Calendar, AlertCircle, CheckCircle, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Edit, ExternalLink, PauseCircle, PlayCircle, Loader, Star, DollarSign, Calendar, AlertCircle, CheckCircle, MessageSquare, AlertTriangle, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import NewGigModal from './NewGigModal';
@@ -23,6 +23,7 @@ const MyGigs = () => {
   const [currentOrder, setCurrentOrder] = useState(null);
   const [verifyingOrders, setVerifyingOrders] = useState([]);
   const [userRating, setUserRating] = useState(0);
+  const [cancelledOrders, setCancelledOrders] = useState([]);
 
   useEffect(() => {
     const loadGigs = async () => {
@@ -43,6 +44,9 @@ const MyGigs = () => {
         
         // Check for orders in verifying state
         checkVerifyingOrders();
+        
+        // Check for cancelled orders
+        checkCancelledOrders();
       } catch (error) {
         console.error("Error loading gigs:", error);
         setError("Failed to load your gigs. Please try again.");
@@ -139,6 +143,15 @@ const MyGigs = () => {
   // Function to mark an order as completed (when you're the freelancer)
   const markOrderAsCompleted = async (orderId) => {
     try {
+      // First check if the order isn't cancelled
+      const orderResponse = await fetch(`${API_URL}/api/orders/${orderId}`);
+      const orderData = await orderResponse.json();
+      
+      if (orderData.order.status === 'cancelled') {
+        setError("This order has been cancelled and cannot be updated.");
+        return;
+      }
+      
       const response = await fetch(`${API_URL}/api/orders/${orderId}/complete`, {
         method: 'PUT',
         headers: {
@@ -153,11 +166,25 @@ const MyGigs = () => {
         // Update the verifying orders list
         checkVerifyingOrders();
       } else {
-        setError("Failed to mark order as completed. Please try again.");
+        const errorData = await response.json();
+        setError(errorData.message || "Failed to mark order as completed. Please try again.");
       }
     } catch (error) {
       console.error("Error marking order as completed:", error);
       setError("Failed to mark order as completed. Please try again.");
+    }
+  };
+
+  // New function to check for cancelled orders
+  const checkCancelledOrders = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/orders/cancelled/seller/${currentUser.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCancelledOrders(data.orders || []);
+      }
+    } catch (error) {
+      console.error("Error checking cancelled orders:", error);
     }
   };
 
@@ -328,6 +355,38 @@ const MyGigs = () => {
                     </div>
                     <div className="bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm">
                       Awaiting Verification
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Display cancelled orders */}
+        {cancelledOrders.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Cancelled Orders</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {cancelledOrders.map(order => (
+                <div key={order.id} className="bg-gradient-to-br from-red-900/30 to-red-800/20 backdrop-blur-sm rounded-xl border border-red-500/20 p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <XCircle className="w-5 h-5 text-red-400" />
+                        <span className="font-medium">Order #{order.id}</span>
+                      </div>
+                      <h3 className="text-lg font-medium mb-1">{order.title || "Order"}</h3>
+                      <p className="text-sm text-gray-400">Client: {order.buyer_name}</p>
+                      <p className="text-sm text-gray-400">Cancelled on: {new Date(order.cancelled_date).toLocaleDateString()}</p>
+                      {order.cancellation_reason && (
+                        <p className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-sm">
+                          Reason: {order.cancellation_reason}
+                        </p>
+                      )}
+                    </div>
+                    <div className="bg-red-500/20 text-red-300 px-3 py-1 rounded-full text-sm">
+                      Cancelled
                     </div>
                   </div>
                 </div>
