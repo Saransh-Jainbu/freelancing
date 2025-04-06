@@ -156,7 +156,7 @@ const OrderDetails = () => {
                   <p className="text-gray-400">Order #{order.id}</p>
                 </div>
                 
-                {isFreelancer ? (
+                {isFreelancer && order.status !== 'cancelled' && (
                   <div className="relative">
                     <button
                       onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
@@ -198,7 +198,8 @@ const OrderDetails = () => {
                       </>
                     )}
                   </div>
-                ) : (
+                )}
+                {!isFreelancer && (
                   <div className={`px-4 py-2 rounded-full ${getStatusColorClass(order.status)}`}>
                     {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}
                   </div>
