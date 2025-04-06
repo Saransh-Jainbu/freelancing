@@ -32,11 +32,11 @@ const DashboardPage = () => {
         const totalEarnings = userGigs.reduce((sum, gig) => sum + (parseFloat(gig.earnings?.replace('$', '')) || 0), 0);
         const ratings = userGigs.filter(gig => gig.rating).map(gig => gig.rating);
         const averageRating = ratings.length > 0 
-          ? (ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1)
-          : 0;
+          ? (ratings.reduce((sum, rating) => sum + Number(rating), 0) / ratings.length).toFixed(1)
+          : '0.0';
 
         setStats({
-          totalEarnings: `$${totalEarnings.toFixed(2)}`,
+          totalEarnings: `$${Number(totalEarnings).toFixed(2)}`,
           activeGigs,
           totalOrders,
           averageRating,

@@ -30,13 +30,13 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
       features: ['Basic service']
     },
     standard: {
-      price: (parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0') * 1.5).toFixed(2),
+      price: parseFloat((parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0') * 1.5).toFixed(2)),
       delivery_days: 5,
       revisions: 2,
       features: ['Standard service', 'Faster delivery']
     },
     premium: {
-      price: (parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0') * 2).toFixed(2),
+      price: parseFloat((parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0') * 2).toFixed(2)),
       delivery_days: 3,
       revisions: 5,
       features: ['Premium service', 'Fastest delivery', 'Premium support']
@@ -228,7 +228,7 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
                 </div>
                 <div className="flex justify-between py-2 mt-2 font-semibold">
                   <span>Total</span>
-                  <span>${(selectedPackage.price * orderData.quantity).toFixed(2)}</span>
+                  <span>${(Number(selectedPackage.price) * Number(orderData.quantity)).toFixed(2)}</span>
                 </div>
               </div>
               
