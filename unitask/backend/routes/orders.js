@@ -406,11 +406,13 @@ router.get('/completed/:userId', async (req, res) => {
     const { userId } = req.params;
 
     const result = await query(
-      `SELECT o.*, g.title as gig_title, u.display_name as client_name
+      `SELECT o.*, g.title as gig_title, u.display_name as client_name, f.display_name as freelancer_name
        FROM orders o
        JOIN gigs g ON o.gig_id = g.id
        JOIN users u ON o.client_id = u.id
-       WHERE o.freelancer_id = $1 AND o.status = 'completed'
+       JOIN users f ON o.freelancer_id = f.id
+       LEFT JOIN reviews r ON o.id = r.order_id
+       WHERE o.freelancer_id = $1 AND o.status = 'completed' AND r.id IS NULL
        ORDER BY o.completed_at DESC`,
       [userId]
     );
