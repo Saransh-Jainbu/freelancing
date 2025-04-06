@@ -400,4 +400,26 @@ router.get('/cancelled/seller/:sellerId', async (req, res) => {
   }
 });
 
+// Fetch completed orders for a user
+router.get('/completed/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const result = await query(
+      `SELECT o.*, g.title as gig_title, u.display_name as client_name
+       FROM orders o
+       JOIN gigs g ON o.gig_id = g.id
+       JOIN users u ON o.client_id = u.id
+       WHERE o.freelancer_id = $1 AND o.status = 'completed'
+       ORDER BY o.completed_at DESC`,
+      [userId]
+    );
+
+    res.json({ success: true, orders: result.rows });
+  } catch (error) {
+    console.error('Error fetching completed orders:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
