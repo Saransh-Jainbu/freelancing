@@ -1,4 +1,12 @@
-// Moved from frontend/src/components
 import React from 'react';
 
-// ...existing code from OrderActions.jsx...
+function OrderActions() {
+    return (
+        <div>
+            <button>Approve</button>
+            <button>Reject</button>
+        </div>
+    );
+}
+
+export default OrderActions;

@@ -1,4 +1,12 @@
-// Moved from frontend/src/components
 import React from 'react';
 
-// ...existing code from CancellationConfirmDialog.jsx...
+function CancellationConfirmDialog() {
+    return (
+        <div>
+            <h1>Confirm Cancellation</h1>
+            <p>Are you sure you want to cancel?</p>
+        </div>
+    );
+}
+
+export default CancellationConfirmDialog;

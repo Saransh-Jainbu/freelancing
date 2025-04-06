@@ -1,3 +1,11 @@
-// Moved from frontend/src/hooks
+import { useState } from 'react';
 
-// ...existing code from useClientCancellation.js...
+function useClientCancellation() {
+    const [isCancelled, setIsCancelled] = useState(false);
+
+    const cancel = () => setIsCancelled(true);
+
+    return { isCancelled, cancel };
+}
+
+export default useClientCancellation;

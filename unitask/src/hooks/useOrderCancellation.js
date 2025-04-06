@@ -1,3 +1,11 @@
-// Moved from frontend/src/hooks
+import { useState } from 'react';
 
-// ...existing code from useOrderCancellation.js...
+function useOrderCancellation() {
+    const [isOrderCancelled, setIsOrderCancelled] = useState(false);
+
+    const cancelOrder = () => setIsOrderCancelled(true);
+
+    return { isOrderCancelled, cancelOrder };
+}
+
+export default useOrderCancellation;
