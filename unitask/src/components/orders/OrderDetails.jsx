@@ -232,6 +232,14 @@ const OrderDetails = () => {
               </div>
             </div>
 
+            {/* Display a message when the order is cancelled */}
+            {order.status === 'cancelled' && isFreelancer && (
+              <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-lg text-center">
+                <h3 className="text-lg font-semibold text-red-500">This order has been cancelled</h3>
+                <p className="text-gray-400 mt-2">You have cancelled this order. No further actions can be taken.</p>
+              </div>
+            )}
+
             {/* Participants Section */}
             <div className="p-6 border-b border-white/10">
               <h3 className="text-lg font-semibold mb-4">Order Participants</h3>
