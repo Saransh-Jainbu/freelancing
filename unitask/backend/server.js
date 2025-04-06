@@ -63,6 +63,116 @@ const { sendPushNotification } = require('./routes/notifications');
 app.use('/api/orders', ordersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
+// Add this direct route for order status updates specifically at server level
+app.put('/api/orders/:orderId/status', async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { status, userId } = req.body;
+    
+    console.log(`[Server Direct] Order status update request: orderId=${orderId}, status=${status}, userId=${userId}`);
+    
+    if (!orderId || !status || !userId) {
+      console.log(`[Server Direct] Missing required fields in order status update`);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields: orderId, status, or userId' 
+      });
+    }
+    
+    // First check if order exists
+    const orderExistsQuery = 'SELECT id FROM orders WHERE id = $1';
+    const orderExists = await query(orderExistsQuery, [orderId]);
+    
+    if (orderExists.rows.length === 0) {
+      console.log(`[Server Direct] Order ${orderId} not found in database`);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found' 
+      });
+    }
+    
+    // Get full order details
+    const orderQuery = 'SELECT client_id, seller_id, freelancer_id, status as current_status FROM orders WHERE id = $1';
+    const orderCheck = await query(orderQuery, [orderId]);
+    const order = orderCheck.rows[0];
+    
+    // Print debugging info
+    console.log(`[Server Direct] Found order: ${JSON.stringify(order)}`);
+    console.log(`[Server Direct] User ID: ${userId}, Type: ${typeof userId}`);
+    console.log(`[Server Direct] Client ID: ${order.client_id}, Type: ${typeof order.client_id}`);
+    console.log(`[Server Direct] Seller ID: ${order.seller_id}, Type: ${typeof order.seller_id}`);
+    console.log(`[Server Direct] Freelancer ID: ${order.freelancer_id}, Type: ${typeof order.freelancer_id}`);
+    
+    // Convert IDs to numbers for reliable comparison
+    const userIdNum = Number(userId);
+    const clientIdNum = Number(order.client_id);
+    const sellerIdNum = Number(order.seller_id || order.freelancer_id);
+    
+    // Check authorization
+    const isSeller = userIdNum === sellerIdNum;
+    const isClient = userIdNum === clientIdNum;
+    
+    console.log(`[Server Direct] Authorization check: isSeller=${isSeller}, isClient=${isClient}`);
+    
+    if (!isSeller && !isClient) {
+      console.log(`[Server Direct] User ${userId} not authorized for order ${orderId}`);
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to update this order' 
+      });
+    }
+    
+    // Additional timestamp fields to update based on new status
+    let additionalFields = '';
+    
+    if (status === 'in_progress') {
+      additionalFields = ', started_at = CURRENT_TIMESTAMP';
+    } else if (status === 'verifying') {
+      additionalFields = ', completed_at = CURRENT_TIMESTAMP';
+    } else if (status === 'completed') {
+      additionalFields = ', completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)';
+    } else if (status === 'cancelled') {
+      additionalFields = ', cancelled_at = CURRENT_TIMESTAMP';
+    } else if (status === 'cancellation_requested') {
+      additionalFields = ', cancellation_requested_at = CURRENT_TIMESTAMP';
+    }
+    
+    // Update order status - no user ID check here since we already verified authorization
+    const updateQuery = `
+      UPDATE orders 
+      SET status = $1, 
+          updated_at = CURRENT_TIMESTAMP
+          ${additionalFields}
+      WHERE id = $2
+      RETURNING *`;
+    
+    const result = await query(updateQuery, [status, orderId]);
+    
+    if (result.rows.length === 0) {
+      console.log(`[Server Direct] Failed to update order ${orderId} status`);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to update order status' 
+      });
+    }
+    
+    console.log(`[Server Direct] Successfully updated order ${orderId} status to ${status}`);
+    
+    // Success - return the updated order
+    res.json({ 
+      success: true, 
+      order: result.rows[0] 
+    });
+  } catch (error) {
+    console.error('[Server Direct] Error updating order status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error updating order status: ' + error.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+    });
+  }
+});
+
 // Initialize database tables
 const initDb = async () => {
   try {
