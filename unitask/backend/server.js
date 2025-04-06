@@ -223,6 +223,114 @@ app.put('/api/orders/:orderId/status', async (req, res) => {
   }
 });
 
+// Add a specific endpoint for client-side cancellation that shows a dialog
+app.post('/api/orders/:orderId/client-cancel', async (req, res) => {
+  console.log('[CLIENT-CANCEL] Client cancellation endpoint accessed');
+  try {
+    const orderId = req.params.orderId;
+    const { clientId, reason } = req.body;
+    
+    if (!orderId || !clientId || !reason) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields: orderId, clientId, or reason' 
+      });
+    }
+    
+    // Verify the order exists and belongs to this client
+    const orderCheck = await query(
+      'SELECT client_id, seller_id, freelancer_id, status FROM orders WHERE id = $1',
+      [orderId]
+    );
+    
+    if (orderCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found' 
+      });
+    }
+    
+    const order = orderCheck.rows[0];
+    
+    // Check if client is authorized
+    if (Number(order.client_id) !== Number(clientId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to cancel this order'
+      });
+    }
+    
+    // Check if order is in a cancellable state
+    const cancellableStates = ['pending', 'in_progress', 'verifying'];
+    if (!cancellableStates.includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Orders in ${order.status} status cannot be cancelled`
+      });
+    }
+    
+    // Update order status to cancellation_requested
+    const updateResult = await query(
+      `UPDATE orders
+       SET status = 'cancellation_requested',
+          cancellation_reason = $1,
+          cancellation_requested_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND client_id = $3
+       RETURNING *`,
+      [reason, orderId, clientId]
+    );
+    
+    // Notify the freelancer about the cancellation request
+    const freelancerId = order.seller_id || order.freelancer_id;
+    
+    // Get client name
+    const clientResult = await query(
+      'SELECT display_name FROM users WHERE id = $1',
+      [clientId]
+    );
+    
+    const clientName = clientResult.rows[0]?.display_name || 'Client';
+    
+    // Create notification for freelancer
+    await query(
+      `INSERT INTO notifications (
+        user_id, type, title, message, reference_id, reference_type
+      ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        freelancerId,
+        'order_cancellation',
+        'Cancellation Request',
+        `${clientName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+        orderId,
+        'order'
+      ]
+    );
+    
+    // Send notification via WebSocket
+    io.to(`user-${freelancerId}`).emit('notification', {
+      type: 'order_cancellation',
+      title: 'Cancellation Request',
+      message: `${clientName} has requested to cancel order #${orderId}${reason ? ': ' + reason : ''}`,
+      reference_id: orderId,
+      reference_type: 'order'
+    });
+    
+    res.json({
+      success: true,
+      order: updateResult.rows[0],
+      message: 'Cancellation request sent to freelancer'
+    });
+    
+  } catch (error) {
+    console.error('[CLIENT-CANCEL] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error processing cancellation request'
+    });
+  }
+});
+
 // Initialize database tables
 const initDb = async () => {
   try {
