@@ -1952,7 +1952,7 @@ app.get('/api/orders/cancelled/seller/:sellerId', async (req, res) => {
        FROM orders o
        LEFT JOIN gigs g ON o.gig_id = g.id
        LEFT JOIN users u ON o.client_id = u.id
-       WHERE o.seller_id = $1 AND o.status = 'cancelled'
+       WHERE o.freelancer_id = $1 AND o.status = 'cancelled'
        ORDER BY o.cancelled_at DESC NULLS LAST`,
       [sellerId]
     );
