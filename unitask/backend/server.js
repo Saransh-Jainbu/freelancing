@@ -334,6 +334,48 @@ app.post('/api/orders/:orderId/client-cancel', async (req, res) => {
   }
 });
 
+// Add route to fetch verifying orders for a seller
+app.get('/api/orders/verifying/seller/:sellerId', async (req, res) => {
+  try {
+    const sellerId = req.params.sellerId;
+
+    const result = await query(
+      `SELECT o.*, g.title as gig_title, u.display_name as buyer_name 
+       FROM orders o
+       JOIN gigs g ON o.gig_id = g.id
+       JOIN users u ON o.client_id = u.id
+       WHERE o.seller_id = $1 AND o.status = 'verifying'
+       ORDER BY o.updated_at DESC`,
+      [sellerId]
+    );
+
+    res.json({ success: true, orders: result.rows });
+  } catch (error) {
+    console.error('Error fetching verifying orders:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching verifying orders' });
+  }
+});
+
+// Add route to fetch user rating
+app.get('/api/users/:userId/rating', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const result = await query(
+      `SELECT AVG(rating) as rating 
+       FROM reviews 
+       WHERE freelancer_id = $1`,
+      [userId]
+    );
+
+    const rating = result.rows[0]?.rating || 0;
+    res.json({ success: true, rating });
+  } catch (error) {
+    console.error('Error fetching user rating:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching user rating' });
+  }
+});
+
 // Initialize database tables
 const initDb = async () => {
   try {
@@ -1902,20 +1944,27 @@ app.post('/api/gigs/:gigId/image', upload.single('image'), async (req, res) => {
 app.get('/api/orders/cancelled/seller/:sellerId', async (req, res) => {
   try {
     const sellerId = req.params.sellerId;
-    
+
+    console.log(`[Server] Fetching cancelled orders for seller ${sellerId}`);
+
     const result = await query(
-      `SELECT o.*, g.title, u.display_name as buyer_name 
+      `SELECT o.*, g.title as gig_title, u.display_name as buyer_name 
        FROM orders o
-       JOIN gigs g ON o.gig_id = g.id
-       JOIN users u ON o.client_id = u.id
+       LEFT JOIN gigs g ON o.gig_id = g.id
+       LEFT JOIN users u ON o.client_id = u.id
        WHERE o.seller_id = $1 AND o.status = 'cancelled'
-       ORDER BY o.cancelled_at DESC`,
+       ORDER BY o.cancelled_at DESC NULLS LAST`,
       [sellerId]
     );
-    
+
+    if (result.rows.length === 0) {
+      console.log(`[Server] No cancelled orders found for seller ${sellerId}`);
+      return res.status(404).json({ success: false, message: 'No cancelled orders found' });
+    }
+
     res.json({ success: true, orders: result.rows });
   } catch (error) {
-    console.error('Error fetching cancelled orders:', error);
+    console.error(`[Server] Error fetching cancelled orders for seller ${sellerId}:`, error);
     res.status(500).json({ success: false, message: 'Server error fetching cancelled orders' });
   }
 });
