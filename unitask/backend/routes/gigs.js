@@ -1,8 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
+const { recommendGigs } = require('../services/recommendationService');
 
-// ...existing code...
+// Mock data for gigs (replace with database query in production)
+const gigs = [
+    { id: 1, title: 'Web Development', description: 'Build responsive websites using React and Node.js' },
+    { id: 2, title: 'Graphic Design', description: 'Create stunning visuals and logos' },
+    { id: 3, title: 'Content Writing', description: 'Write engaging blog posts and articles' },
+];
+
+/**
+ * GET /search
+ * Search for gigs with AI-powered recommendations.
+ */
+router.get('/search', (req, res) => {
+    const query = req.query.q;
+
+    // Find recommended gigs
+    const recommendations = recommendGigs(query, gigs);
+
+    if (recommendations.length > 0) {
+        res.json({ success: true, gigs: recommendations });
+    } else {
+        res.json({ success: true, message: 'No exact matches found. Here are some similar gigs.', gigs: gigs });
+    }
+});
 
 // Create a new gig
 router.post('/', async (req, res) => {
@@ -177,7 +200,5 @@ router.get('/:gigId/details', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error fetching gig details' });
   }
 });
-
-// ...existing code...
 
 module.exports = router;

@@ -1,42 +1,63 @@
 # UniTask - Freelance Marketplace Platform
 
-UniTask is a comprehensive freelancing marketplace platform designed for students and professionals to offer and purchase services. The platform features real-time chat, order management, push notifications, and a responsive design optimized for both desktop and mobile devices.
+UniTask is a comprehensive freelancing platform designed to connect students with freelancing opportunities. This document provides an in-depth guide to the platform's features, architecture, and deployment setup.
+
+---
+
+## Table of Contents
+
+1. [Features](#features)
+2. [Technology Stack](#technology-stack)
+3. [Project Structure](#project-structure)
+4. [Database Setup](#database-setup)
+5. [Azure Blob Storage Setup](#azure-blob-storage-setup)
+6. [Authentication](#authentication)
+7. [Deployment](#deployment)
+8. [Environment Variables](#environment-variables)
+
+---
 
 ## Features
 
-### Core Functionality
-- **User Authentication**: Login, registration, and OAuth support (Google, GitHub)
-- **Marketplace**: Browse and search available services/gigs
-- **Order Management**: Create, track, and manage service orders
-- **Real-time Chat**: Communication between clients and freelancers
-- **Profile Management**: Customize profiles with skills, languages, and portfolio items
-- **Review System**: Rate and review completed services
+### Core Features
+- **User Authentication**: Secure login and registration using Google and GitHub OAuth.
+- **User Profiles**: Customizable profiles with skills, languages, and portfolio.
+- **Task Management**: Create, edit, and manage tasks with milestones.
+- **Marketplace**: Browse and filter gigs by category, price, and deadline.
+- **Real-Time Chat**: Instant messaging with typing indicators and notifications.
+- **Order Management**: Track orders, milestones, and revisions.
+- **Payment Integration**: Secure transactions with escrow functionality.
+- **Notifications**: Push and in-app notifications for updates.
 
-### Advanced Features
-- **Push Notifications**: Receive notifications even when the browser is closed
-- **Responsive Design**: Optimized for both desktop and mobile
-- **File Uploads**: Share files through Azure Blob Storage
-- **Multiple Service Packages**: Basic, standard, premium package options
-- **Order Milestones**: Track progress through project milestones
+### Admin Features
+- **User Management**: Monitor and manage user accounts.
+- **Analytics**: Generate reports on platform activity.
+
+---
 
 ## Technology Stack
 
 ### Frontend
-- **Framework**: React.js with Vite
-- **Styling**: TailwindCSS
-- **State Management**: React Context API
-- **Routing**: React Router
-- **API Communication**: Fetch API
-- **Real-time Communication**: Socket.IO client
-- **Push Notifications**: Web Push API with service workers
+- **Framework**: React.js with Vite for fast builds.
+- **Styling**: TailwindCSS for modern UI design.
+- **State Management**: React Context API.
+- **Routing**: React Router.
+- **Real-Time Communication**: Socket.IO client.
+- **Push Notifications**: Web Push API with service workers.
 
 ### Backend
-- **Framework**: Express.js (Node.js)
-- **Database**: PostgreSQL
-- **Authentication**: Passport.js, bcrypt.js
-- **Real-time Communication**: Socket.IO
-- **File Storage**: Azure Blob Storage
-- **Push Notifications**: web-push library with VAPID keys
+- **Framework**: Express.js (Node.js).
+- **Database**: PostgreSQL (Neon.tech).
+- **Authentication**: Passport.js with Google and GitHub strategies.
+- **Real-Time Communication**: Socket.IO.
+- **File Storage**: Azure Blob Storage.
+- **Push Notifications**: web-push library with VAPID keys.
+
+### Deployment
+- **Frontend**: Vercel.
+- **Backend**: Render.
+
+---
 
 ## Project Structure
 
@@ -48,229 +69,95 @@ unitask/
 └── package.json    # Frontend dependencies
 ```
 
-## Getting Started
+---
 
-### Prerequisites
+## Database Setup
 
-- Node.js 14+ and npm
-- PostgreSQL database (we're using Neon.tech)
+UniTask uses PostgreSQL hosted on Neon.tech. The database schema includes tables for users, profiles, gigs, orders, messages, and notifications. Key features include:
 
-### Setup Instructions
+- **Users Table**: Stores user credentials and basic information.
+- **Profiles Table**: Contains user profile details like skills, languages, and avatar.
+- **Gigs Table**: Manages gig listings with pricing and categories.
+- **Orders Table**: Tracks orders, milestones, and payment status.
+- **Messages Table**: Stores chat messages with read status.
+- **Notifications Table**: Handles in-app and push notifications.
 
-1. **Clone the repository**
+---
 
-```bash
-git clone <repository-url>
-cd unitask
-```
+## Azure Blob Storage Setup
 
-2. **Install frontend dependencies**
+Azure Blob Storage is used for storing user avatars, gig images, and other media files. The setup includes:
 
-```bash
-npm install
-```
+1. **Storage Account**: Create a storage account in Azure.
+2. **Blob Container**: Create a container named `userimages` with private access.
+3. **CORS Configuration**:
+   - Allowed origins: Your frontend domain.
+   - Allowed methods: GET, PUT, POST, DELETE.
+   - Allowed headers: *
+   - Exposed headers: *
+   - Max age: 86400.
+4. **Environment Variables**:
+   - `AZURE_STORAGE_ACCOUNT_NAME`
+   - `AZURE_STORAGE_ACCOUNT_KEY`
+   - `AZURE_STORAGE_CONTAINER_NAME`
 
-3. **Install backend dependencies**
+---
 
-```bash
-cd backend
-npm install
-cd ..
-```
+## Authentication
 
-4. **Start the backend server**
+UniTask supports OAuth-based authentication using Google and GitHub. Key details:
 
-```bash
-cd backend
-npm run dev
-```
+- **Google OAuth**:
+  - Client ID and Secret are configured in the `.env` file.
+  - Callback URL: `/api/auth/google/callback`.
+- **GitHub OAuth**:
+  - Client ID and Secret are configured in the `.env` file.
+  - Callback URL: `/api/auth/github/callback`.
 
-The backend will start on http://localhost:5000
-
-5. **Start the frontend development server**
-
-```bash
-# In a new terminal window
-npm run dev
-```
-
-The frontend will start on http://localhost:5173
-
-## Environment Variables
-
-Create a `.env` file in the backend directory with the following variables:
-
-```
-PORT=5000
-DATABASE_URL=postgresql://url
-```
+---
 
 ## Deployment
 
-### Detailed Backend Deployment Guide for Render
+### Frontend (Vercel)
+1. **Create a Vercel Account**: Sign up at [vercel.com](https://vercel.com/).
+2. **Configure Environment Variables**:
+   - `VITE_API_URL`: Backend API URL.
+3. **Deploy from GitHub**:
+   - Framework Preset: Vite.
+   - Build Command: `npm run build`.
+   - Output Directory: `dist`.
 
-1. **Create a Render Account**
-   - Sign up at [render.com](https://render.com/)
-   - Verify your email and set up your account
+### Backend (Render)
+1. **Create a Render Account**: Sign up at [render.com](https://render.com/).
+2. **Configure Web Service**:
+   - Root Directory: `backend`.
+   - Build Command: `npm install`.
+   - Start Command: `node server.js`.
+   - Health Check Path: `/api/health`.
+3. **Environment Variables**:
+   - `DATABASE_URL`: PostgreSQL connection string.
+   - `AZURE_STORAGE_ACCOUNT_NAME`, `AZURE_STORAGE_ACCOUNT_KEY`.
+   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+   - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`.
 
-2. **Connect Your GitHub Repository**
-   - Go to the Render Dashboard
-   - Click "New" and select "Web Service"
-   - Connect your GitHub account
-   - Select your UniTask repository
+---
 
-3. **Configure the Web Service**
-   - **Name**: unitask-backend (or your preferred name)
-   - **Environment**: Node
-   - **Region**: Choose closest to your target users
-   - **Branch**: main (or your deployment branch)
-   - **Root Directory**: backend  
-   - **Build Command**: `npm install`
-   - **Start Command**: `node server.js`  
-   - **Plan**: Select Free (or Hobby for production)
+## Environment Variables
 
-4. **Set Environment Variables**
-   - Scroll down to the "Environment" section
-   - Add all variables from your backend/.env file
-   - Make sure to update these with your actual values:
-     ```
-     PORT=10000
-     SERVER_URL=https://your-app-name.onrender.com
-     FRONTEND_URL=https://your-frontend-url.com
-     DATABASE_URL=your_actual_neon_db_connection_string
-     GOOGLE_CLIENT_ID=your_actual_google_client_id
-     GOOGLE_CLIENT_SECRET=your_actual_google_client_secret
-     GITHUB_CLIENT_ID=your_actual_github_client_id
-     GITHUB_CLIENT_SECRET=your_actual_github_client_secret
-     ```
+### Backend
+- `PORT`: Server port (default: 5000).
+- `DATABASE_URL`: PostgreSQL connection string.
+- `AZURE_STORAGE_ACCOUNT_NAME`: Azure storage account name.
+- `AZURE_STORAGE_ACCOUNT_KEY`: Azure storage account key.
+- `AZURE_STORAGE_CONTAINER_NAME`: Azure blob container name.
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID.
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret.
+- `GITHUB_CLIENT_ID`: GitHub OAuth client ID.
+- `GITHUB_CLIENT_SECRET`: GitHub OAuth client secret.
 
-5. **Advanced Settings (Optional)**
-   - Set "Auto-Deploy" to Yes for automatic deployments
-   - Configure "Health Check Path" to "/api/health" (you may need to add this endpoint)
+### Frontend
+- `VITE_API_URL`: Backend API URL.
 
-6. **Deploy the Service**
-   - Click "Create Web Service"
-   - Monitor the deployment logs for any errors
-   - Once deployed, Render will provide you with a URL for your service
+---
 
-7. **Update OAuth Callback URLs**
-   - Go to Google Cloud Console and GitHub Developer Settings
-   - Add your new Render backend URL to the authorized redirect URIs:
-     - `https://your-app-name.onrender.com/api/auth/google/callback`
-     - `https://your-app-name.onrender.com/api/auth/github/callback`
-
-8. **Test Your Deployment**
-   - Visit your backend URL to verify it's running
-   - Check logs in the Render dashboard for any issues
-
-## Important Deployment Notes
-
-When properly deployed, your application will be:
-
-1. **Fully Online**: The application will be accessible from any internet connection, not just localhost
-   
-2. **Production Ready**: With these configurations, your app will function as a real-world application
-
-3. **Properly Connected**: The frontend will communicate with your backend through secure HTTPS connections
-
-4. **Database Connected**: Your Neon.tech PostgreSQL database will be connected to your deployed backend
-
-5. **Authentication Working**: OAuth providers will work with your deployed URLs (after updating callback URLs)
-
-To ensure your site works properly online:
-
-1. Make sure to update OAuth providers (Google/GitHub) with your production callback URLs
-2. Verify CORS settings to allow connections from your frontend domain
-3. Test all functionality after deployment, especially authentication and file uploads
-
-## Online URLs After Deployment
-
-- **Frontend**: https://unitask-black.vercel.app
-- **Backend API**: https://unitask-backend.onrender.com
-- **Websocket**: wss://unitask-backend.onrender.com (for real-time chat)
-
-### Frontend Deployment (Vercel)
-
-1. **Create a Vercel Account**
-   - Sign up at [vercel.com](https://vercel.com/)
-   - Link your GitHub account
-
-2. **Configure Environment Variables**
-   - Create a `.env` file in your frontend root with:
-     ```
-     VITE_API_URL=https://unitask-backend.onrender.com
-     ```
-
-3. **Deploy from GitHub**
-   - Go to your Vercel dashboard and click "Add New..." > "Project"
-   - Select your repository
-   - Configure the project:
-     - **Framework Preset**: Vite
-     - **Root Directory**: ./ (leave empty if your package.json is at the root)
-     - **Build Command**: `npm run build`
-     - **Output Directory**: `dist`
-   - Add environment variables under the "Environment Variables" section
-   - Click "Deploy"
-
-4. **Configure Custom Domain (Optional)**
-   - Go to your project settings in Vercel
-   - Navigate to the "Domains" section
-   - Current domain: https://unitask-black.vercel.app
-
-5. **Test Your Full Application**
-   - Visit your Vercel URL
-   - Test login, profile, and gig features
-   - Check for CORS or API connection issues
-
-### Frontend Deployment (Netlify)
-
-1. **Create a Netlify Account**
-   - Sign up at [netlify.com](https://netlify.com/)
-   - Link your GitHub account
-
-2. **Configure Environment Variables**
-   - Create a `.env` file in your frontend root with:
-     ```
-     VITE_API_URL=https://your-app-name.onrender.com
-     ```
-
-3. **Deploy from GitHub**
-   - Choose "New site from Git"
-   - Select your repository
-   - Set build command: `npm run build`
-   - Set publish directory: `dist`
-   - Add environment variables
-
-4. **Configure Custom Domain (Optional)**
-   - Set up a custom domain in Netlify settings
-   - Update your backend CORS and OAuth settings
-
-5. **Test Your Full Application**
-   - Visit your Netlify URL
-   - Test login, profile, and gig features
-   - Check for CORS or API connection issues
-
-### Backend Deployment (Render)
-
-1. Create a new Web Service on Render
-2. Connect your GitHub repository
-3. Configure the service:
-   - **Build Command**: `cd backend && npm install`
-   - **Start Command**: `cd backend && npm start`
-   - Set environment variables in the Render dashboard (see backend/.env)
-   
-4. **Render Free Tier Usage**:
-   - 750 hours of free instance usage per month
-   - 100 GB of bandwidth per month
-   - 500 build minutes per month
-   - Note: Free tier instances spin down with inactivity. For production use, consider the Hobby plan ($7/month) to prevent spin down.
-
-5. **Optimizing Free Tier Usage**:
-   - Your backend will sleep after 15 minutes of inactivity
-   - First request after inactivity will take longer to respond (cold start)
-   - Deploy database-intensive operations as background jobs
-   - Minimize build frequency to conserve build minutes
-
-### Frontend Deployment
-
-Deploy your frontend to Netlify or Vercel, pointing to your Render backend URL.
+This guide provides a detailed overview of UniTask's architecture and deployment. For further assistance, refer to the individual setup files and documentation.

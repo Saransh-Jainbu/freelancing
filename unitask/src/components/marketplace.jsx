@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getMarketplaceGigs } from '../api/gigs';
+import axios from 'axios';
 import { Search, Star, DollarSign, Filter, Briefcase, Loader, AlertCircle, ArrowUpRight } from 'lucide-react';
 
-const MarketplacePage = () => {
+const Marketplace = () => {
+  const [searchQuery, setSearchQuery] = useState('');
   const [gigs, setGigs] = useState([]);
+  const [message, setMessage] = useState('');
   const [filteredGigs, setFilteredGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
   const categories = [
@@ -28,9 +29,9 @@ const MarketplacePage = () => {
     const loadGigs = async () => {
       try {
         setLoading(true);
-        const marketplaceGigs = await getMarketplaceGigs();
-        setGigs(marketplaceGigs);
-        setFilteredGigs(marketplaceGigs);
+        const response = await axios.get('/api/gigs');
+        setGigs(response.data.gigs);
+        setFilteredGigs(response.data.gigs);
       } catch (error) {
         console.error("Error loading marketplace gigs:", error);
         setError("Failed to load gigs. Please try again.");
@@ -53,8 +54,8 @@ const MarketplacePage = () => {
     }
     
     // Apply search filter
-    if (searchTerm) {
-      const lowerSearchTerm = searchTerm.toLowerCase();
+    if (searchQuery) {
+      const lowerSearchTerm = searchQuery.toLowerCase();
       result = result.filter(gig => 
         gig.title.toLowerCase().includes(lowerSearchTerm) || 
         (gig.description && gig.description.toLowerCase().includes(lowerSearchTerm))
@@ -62,10 +63,16 @@ const MarketplacePage = () => {
     }
     
     setFilteredGigs(result);
-  }, [searchTerm, selectedCategory, gigs]);
+  }, [searchQuery, selectedCategory, gigs]);
 
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
+  const handleSearch = async () => {
+    try {
+      const response = await axios.get(`/api/gigs/search?q=${searchQuery}`);
+      setGigs(response.data.gigs);
+      setMessage(response.data.message || '');
+    } catch (error) {
+      console.error('Error fetching gigs:', error);
+    }
   };
 
   const handleCategoryChange = (category) => {
@@ -104,10 +111,16 @@ const MarketplacePage = () => {
               <input
                 type="text"
                 placeholder="Search for services..."
-                value={searchTerm}
-                onChange={handleSearchChange}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
               />
+              <button
+                onClick={handleSearch}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-purple-500 text-white px-4 py-2 rounded-lg"
+              >
+                Search
+              </button>
             </div>
           </div>
         </div>
@@ -147,6 +160,8 @@ const MarketplacePage = () => {
           </div>
         )}
 
+        {message && <p className="text-center text-gray-400 mb-6">{message}</p>}
+
         {/* No Results Message */}
         {filteredGigs?.length === 0 && !loading && !error && (
           <div className="text-center py-16">
@@ -157,7 +172,7 @@ const MarketplacePage = () => {
             </p>
             <button
               onClick={() => {
-                setSearchTerm('');
+                setSearchQuery('');
                 setSelectedCategory('');
               }}
               className="bg-white/5 hover:bg-white/10 text-gray-300 px-4 py-2 rounded-lg"
@@ -235,4 +250,4 @@ const MarketplacePage = () => {
   );
 };
 
-export default MarketplacePage;
+export default Marketplace;
