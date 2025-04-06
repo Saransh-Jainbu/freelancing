@@ -1,0 +1,3 @@
+// Moved from frontend/src/hooks
+
+// ...existing code from useClientCancellation.js...
