@@ -3,27 +3,31 @@ const router = express.Router();
 const { query } = require('../db');
 const { recommendGigs } = require('../services/recommendationService');
 
-// Mock data for gigs (replace with database query in production)
-const gigs = [
-    { id: 1, title: 'Web Development', description: 'Build responsive websites using React and Node.js' },
-    { id: 2, title: 'Graphic Design', description: 'Create stunning visuals and logos' },
-    { id: 3, title: 'Content Writing', description: 'Write engaging blog posts and articles' },
-];
-
 /**
  * GET /search
  * Search for gigs with AI-powered recommendations.
  */
-router.get('/search', (req, res) => {
-    const query = req.query.q;
+router.get('/search', async (req, res) => {
+    const searchQuery = req.query.q;
 
-    // Find recommended gigs
-    const recommendations = recommendGigs(query, gigs);
+    try {
+        // Fetch gigs from the database
+        const result = await query(
+            `SELECT id, title, description, category, price FROM gigs WHERE status = 'active'`
+        );
+        const gigs = result.rows;
 
-    if (recommendations.length > 0) {
-        res.json({ success: true, gigs: recommendations });
-    } else {
-        res.json({ success: true, message: 'No exact matches found. Here are some similar gigs.', gigs: gigs });
+        // Find recommended gigs
+        const recommendations = recommendGigs(searchQuery, gigs);
+
+        if (recommendations.length > 0) {
+            res.json({ success: true, gigs: recommendations });
+        } else {
+            res.json({ success: true, message: 'No exact matches found. Here are some similar gigs.', gigs: gigs });
+        }
+    } catch (error) {
+        console.error('Error fetching gigs:', error);
+        res.status(500).json({ success: false, message: 'Server error fetching gigs' });
     }
 });
 
