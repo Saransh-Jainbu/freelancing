@@ -1453,7 +1453,7 @@ app.get('/api/gigs/:userId', async (req, res) => {
         TO_CHAR(created_at, 'YYYY-MM-DD') as created,
         user_id
       FROM gigs 
-      WHERE user_id = $1
+      WHERE user_id = $1 AND status != 'cancelled'
       ORDER BY created_at DESC`,
       [userId]
     );
