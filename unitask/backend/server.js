@@ -32,7 +32,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: [FRONTEND_URL, 'https://myunitask.xyz'],
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -41,7 +41,7 @@ const io = socketIo(server, {
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: [FRONTEND_URL, 'https://myunitask.xyz'],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
