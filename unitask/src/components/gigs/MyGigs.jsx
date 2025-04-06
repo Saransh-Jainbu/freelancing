@@ -188,6 +188,20 @@ const MyGigs = () => {
     }
   };
 
+  // Function to handle skipping a review
+  const handleSkipReview = () => {
+    // Remove the current order from the list of completed orders
+    setCompletedOrders(prevOrders => prevOrders.filter(order => order.id !== currentOrder.id));
+
+    // If there are more orders to review, show the next one
+    if (completedOrders.length > 1) {
+      setCurrentOrder(completedOrders[1]);
+    } else {
+      setIsReviewModalOpen(false);
+      setCurrentOrder(null);
+    }
+  };
+
   const handleEditGig = (gig) => {
     setCurrentGig(gig);
     setIsEditModalOpen(true);
