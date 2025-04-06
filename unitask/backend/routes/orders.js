@@ -259,30 +259,64 @@ router.get('/:orderId', async (req, res) => {
   }
 });
 
-// Update order status
+// Updated logic to prevent freelancers from changing the state of a cancelled order
 router.put('/:orderId/status', async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status, userId } = req.body;
 
-    const result = await query(
-      `UPDATE orders 
-       SET status = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2 AND freelancer_id = $3
-       RETURNING *`,
-      [status, orderId, userId]
+    // Check if the user is the client (buyer) or freelancer (seller)
+    const orderCheck = await query(
+      `SELECT client_id, freelancer_id, status FROM orders WHERE id = $1`,
+      [orderId]
     );
 
-    if (result.rows.length === 0) {
+    if (orderCheck.rows.length === 0) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Order not found or unauthorized' 
+        message: 'Order not found' 
       });
     }
 
-    res.json({ success: true, order: result.rows[0] });
+    const { client_id, freelancer_id, status: currentStatus } = orderCheck.rows[0];
+
+    if (status === 'cancelled' && userId === client_id) {
+      // Allow buyer to cancel the order
+      const result = await query(
+        `UPDATE orders 
+         SET status = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 AND client_id = $3
+         RETURNING *`,
+        [status, orderId, userId]
+      );
+
+      return res.json({ success: true, order: result.rows[0] });
+    } else if (userId === freelancer_id) {
+      if (currentStatus === 'cancelled') {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Freelancers cannot change the state of a cancelled order' 
+        });
+      }
+
+      // Allow seller to update the order status
+      const result = await query(
+        `UPDATE orders 
+         SET status = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 AND freelancer_id = $3
+         RETURNING *`,
+        [status, orderId, userId]
+      );
+
+      return res.json({ success: true, order: result.rows[0] });
+    } else {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Unauthorized action' 
+      });
+    }
   } catch (error) {
-    console.error('Error updating order:', error);
+    console.error('Error updating order status:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
