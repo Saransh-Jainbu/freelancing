@@ -10,6 +10,7 @@ const socketIo = require('socket.io');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { pool, query } = require('./db');
+const { verifyEmailConnection, sendEmail } = require('./services/emailService');
 
 // Conditionally import Azure Storage
 let azureStorage;
@@ -306,7 +307,6 @@ const initDb = async () => {
 };
 
 // Verify email configuration on startup
-const { verifyEmailConnection } = require('./services/emailService');
 verifyEmailConnection();
 
 // Initialize database on server start
@@ -1678,7 +1678,8 @@ app.post('/api/orders/:orderId/request-cancellation', async (req, res) => {
     );
     
     // Check if this client is authorized to cancel this order
-    if (clientIdCheck.rows[0].client_id !== parseInt(clientId)) {
+    // Convert both IDs to numbers to ensure proper comparison
+    if (Number(clientIdCheck.rows[0].client_id) !== Number(clientId)) {
       console.log(`[Server] Client ${clientId} is not authorized to cancel order ${orderId}, belongs to client ${clientIdCheck.rows[0].client_id}`);
       return res.status(403).json({ 
         success: false, 
@@ -1847,6 +1848,57 @@ app.put('/api/orders/:orderId/cancellation-response', async (req, res) => {
          RETURNING *`,
         [response || 'Cancellation approved', orderId, sellerId]
       );
+      
+      // Get detailed order information for email notifications
+      const orderDetails = await query(
+        `SELECT o.*, g.title as gig_title 
+         FROM orders o
+         JOIN gigs g ON o.gig_id = g.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+      
+      // Get email addresses and names for both parties
+      const userEmails = await query(
+        `SELECT u.id, u.email, u.display_name 
+         FROM users u 
+         WHERE u.id IN ($1, $2)`,
+        [clientId, sellerId]
+      );
+      
+      const emailMap = {};
+      const nameMap = {};
+      userEmails.rows.forEach(user => {
+        emailMap[user.id] = user.email;
+        nameMap[user.id] = user.display_name;
+      });
+      
+      // Send email to client
+      sendEmail({
+        to: emailMap[clientId],
+        subject: `Order #${orderId} Cancellation Approved`,
+        html: `
+          <h1>Order Cancellation Approved</h1>
+          <p>Hello ${nameMap[clientId]},</p>
+          <p>Your request to cancel order #${orderId} for "${orderDetails.rows[0].gig_title}" has been approved.</p>
+          ${response ? `<p><strong>Freelancer's response:</strong> ${response}</p>` : ''}
+          <p>If you have any questions, please contact support.</p>
+          <p>Thank you for using our platform.</p>
+        `
+      });
+      
+      // Send email to freelancer
+      sendEmail({
+        to: emailMap[sellerId],
+        subject: `Order #${orderId} Has Been Cancelled`,
+        html: `
+          <h1>Order Has Been Cancelled</h1>
+          <p>Hello ${nameMap[sellerId]},</p>
+          <p>You have approved the cancellation request for order #${orderId} "${orderDetails.rows[0].gig_title}".</p>
+          <p>This order is now officially cancelled.</p>
+          <p>Thank you for using our platform.</p>
+        `
+      });
     } else {
       // If rejected, revert to previous status
       result = await query(
@@ -2071,6 +2123,60 @@ app.put('/api/orders/:orderId/status', async (req, res) => {
       `${FRONTEND_URL}/orders/${orderId}`,
       `order-${orderId}`
     );
+    
+    // Add email notification if status is changed to cancelled
+    if (status === 'cancelled') {
+      // Get detailed order information
+      const orderDetails = await query(
+        `SELECT o.*, g.title as gig_title 
+         FROM orders o
+         JOIN gigs g ON o.gig_id = g.id
+         WHERE o.id = $1`,
+        [orderId]
+      );
+      
+      // Get email addresses for both parties
+      const userEmails = await query(
+        `SELECT u.id, u.email, u.display_name 
+         FROM users u 
+         WHERE u.id IN ($1, $2)`,
+        [order.client_id, order.seller_id || order.freelancer_id]
+      );
+      
+      const emailMap = {};
+      const nameMap = {};
+      userEmails.rows.forEach(user => {
+        emailMap[user.id] = user.email;
+        nameMap[user.id] = user.display_name;
+      });
+      
+      // Send email to client
+      sendEmail({
+        to: emailMap[order.client_id],
+        subject: `Order #${orderId} Has Been Cancelled`,
+        html: `
+          <h1>Order Cancelled</h1>
+          <p>Hello ${nameMap[order.client_id]},</p>
+          <p>Your order #${orderId} for "${orderDetails.rows[0].gig_title}" has been cancelled.</p>
+          <p>If you have any questions, please contact support.</p>
+          <p>Thank you for using our platform.</p>
+        `
+      });
+      
+      // Send email to freelancer
+      const freelancerId = order.seller_id || order.freelancer_id;
+      sendEmail({
+        to: emailMap[freelancerId],
+        subject: `Order #${orderId} Has Been Cancelled`,
+        html: `
+          <h1>Order Cancelled</h1>
+          <p>Hello ${nameMap[freelancerId]},</p>
+          <p>Order #${orderId} for "${orderDetails.rows[0].gig_title}" has been cancelled.</p>
+          <p>If you have any questions, please contact support.</p>
+          <p>Thank you for using our platform.</p>
+        `
+      });
+    }
     
     // Success - return the updated order
     console.log(`[Server] Successfully updated order ${orderId} to status ${status}`);
