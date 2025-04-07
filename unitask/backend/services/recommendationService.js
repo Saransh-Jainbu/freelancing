@@ -2,9 +2,10 @@
  * Recommend gigs based on a search query.
  * @param {string} query - The search query entered by the user.
  * @param {Array} gigs - List of all available gigs.
+ * @param {Object} options - Additional options like userLanguage, cacheKey, etc.
  * @returns {Array} - Recommended gigs sorted by relevance.
  */
-function recommendGigs(query, gigs) {
+function recommendGigs(query, gigs, options = {}) {
     try {
         // Early return cases
         if (!gigs || !Array.isArray(gigs) || gigs.length === 0) return [];
@@ -13,14 +14,40 @@ function recommendGigs(query, gigs) {
             return gigs.sort((a, b) => (b.reviewCount || b.orders || 0) - (a.reviewCount || a.orders || 0)).slice(0, 20);
         }
 
+        // Check cache if cacheKey is provided
+        if (options.cacheKey && recommendationCache[options.cacheKey]) {
+            console.log(`[Recommendation] Cache hit for key: ${options.cacheKey}`);
+            return recommendationCache[options.cacheKey];
+        }
+
+        // Apply rate limiting if needed
+        if (options.ipAddress && !checkRateLimit(options.ipAddress)) {
+            console.warn(`[Recommendation] Rate limit exceeded for IP: ${options.ipAddress}`);
+            return gigs.slice(0, 20); // Return default results when rate limited
+        }
+
         // Try to use natural language processing if available
         try {
             const natural = require('natural');
-            return recommendWithNLP(query, gigs, natural);
+            const results = recommendWithNLP(query, gigs, natural, options);
+            
+            // Cache results if caching is enabled
+            if (options.cacheKey) {
+                cacheResults(options.cacheKey, results);
+            }
+            
+            return results;
         } catch (error) {
             // If natural package fails, fall back to simple string matching
             console.warn('[Recommendation] Natural package failed, using fallback method:', error.message);
-            return recommendSimple(query, gigs);
+            const results = recommendSimple(query, gigs, options);
+            
+            // Cache results if caching is enabled
+            if (options.cacheKey) {
+                cacheResults(options.cacheKey, results);
+            }
+            
+            return results;
         }
     } catch (error) {
         console.error('[Recommendation] Error in recommendation service:', error);
@@ -29,11 +56,59 @@ function recommendGigs(query, gigs) {
     }
 }
 
+// Simple in-memory cache for recommendations
+const recommendationCache = {};
+const CACHE_TTL = 3600000; // 1 hour in milliseconds
+
+// Rate limiting
+const rateLimits = {};
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const MAX_REQUESTS = 100; // Max requests per minute
+
+/**
+ * Caches recommendation results with expiration
+ */
+function cacheResults(key, results) {
+    recommendationCache[key] = results;
+    // Set expiration
+    setTimeout(() => {
+        delete recommendationCache[key];
+    }, CACHE_TTL);
+}
+
+/**
+ * Check if request is within rate limit
+ */
+function checkRateLimit(ipAddress) {
+    const now = Date.now();
+    if (!rateLimits[ipAddress]) {
+        rateLimits[ipAddress] = {
+            count: 1,
+            firstRequest: now
+        };
+        return true;
+    }
+
+    // Reset counter if window has passed
+    if (now - rateLimits[ipAddress].firstRequest > RATE_LIMIT_WINDOW) {
+        rateLimits[ipAddress] = {
+            count: 1,
+            firstRequest: now
+        };
+        return true;
+    }
+
+    // Increment count and check limit
+    rateLimits[ipAddress].count++;
+    return rateLimits[ipAddress].count <= MAX_REQUESTS;
+}
+
 /**
  * Simple recommendation algorithm that doesn't rely on external packages
  */
-function recommendSimple(query, gigs) {
+function recommendSimple(query, gigs, options = {}) {
     const searchTerms = query.toLowerCase().split(/\s+/);
+    const userLanguage = options.userLanguage || 'en';
     
     // Calculate a simple score based on term frequency
     const scoredGigs = gigs.map(gig => {
@@ -71,6 +146,18 @@ function recommendSimple(query, gigs) {
         // Add small boost based on popularity (orders)
         score += Math.log(1 + (gig.reviewCount || gig.orders || 0)) * 0.5;
         
+        // Language preference boost
+        if (gig.language === userLanguage) {
+            score += 1.5;
+        }
+        
+        // User preferences boost if available
+        if (options.userPreferences && gig.category && options.userPreferences.favoriteCategories) {
+            if (options.userPreferences.favoriteCategories.includes(gig.category)) {
+                score += 2;
+            }
+        }
+        
         return { gig, score };
     });
     
@@ -88,12 +175,13 @@ function recommendSimple(query, gigs) {
 /**
  * Advanced recommendation using natural language processing
  */
-function recommendWithNLP(query, gigs, natural) {
+function recommendWithNLP(query, gigs, natural, options = {}) {
     // Tokenize and stem the query
     const tokenizer = new natural.WordTokenizer();
     const stemmer = natural.PorterStemmer;
     const queryTokens = tokenizer.tokenize((query || '').toLowerCase());
     const queryStems = queryTokens.map(token => stemmer.stem(token));
+    const userLanguage = options.userLanguage || 'en';
 
     // Calculate similarity scores for each gig
     const scores = gigs.map(gig => {
@@ -132,13 +220,26 @@ function recommendWithNLP(query, gigs, natural) {
             const popularity = gig.reviewCount || gig.orders || 0;
             const popularityFactor = Math.log(1 + popularity) * 0.5;
             
+            // 6. Language preference boost
+            const languageBoost = gig.language === userLanguage ? 1.5 : 0;
+            
+            // 7. User preferences boost if available
+            let userPreferenceBoost = 0;
+            if (options.userPreferences && gig.category && options.userPreferences.favoriteCategories) {
+                if (options.userPreferences.favoriteCategories.includes(gig.category)) {
+                    userPreferenceBoost = 2;
+                }
+            }
+            
             // Calculate final score with different weights
             const score = 
                 (exactMatches * 3) + 
                 (stemMatches * 2) + 
                 (partialMatches * 1) + 
                 categoryBonus +
-                popularityFactor;
+                popularityFactor +
+                languageBoost +
+                userPreferenceBoost;
                 
             return { 
                 gig, 
@@ -148,7 +249,9 @@ function recommendWithNLP(query, gigs, natural) {
                     stem: stemMatches,
                     partial: partialMatches,
                     category: categoryBonus,
-                    popularity: popularityFactor
+                    popularity: popularityFactor,
+                    language: languageBoost,
+                    userPreference: userPreferenceBoost
                 }
             };
         } catch (err) {
@@ -167,4 +270,11 @@ function recommendWithNLP(query, gigs, natural) {
     return scores.map(scoreObj => scoreObj.gig);
 }
 
-module.exports = { recommendGigs };
+module.exports = { 
+    recommendGigs,
+    clearCache: () => Object.keys(recommendationCache).forEach(key => delete recommendationCache[key]),
+    getCacheStats: () => ({
+        size: Object.keys(recommendationCache).length,
+        keys: Object.keys(recommendationCache)
+    })
+};
