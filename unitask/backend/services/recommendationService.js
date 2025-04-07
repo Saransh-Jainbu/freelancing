@@ -10,8 +10,8 @@ function recommendGigs(query, gigs, options = {}) {
         // Early return cases
         if (!gigs || !Array.isArray(gigs) || gigs.length === 0) return [];
         if (!query || !query.trim()) {
-            // Return all gigs sorted by orders/reviews if no query
-            return gigs.sort((a, b) => (b.reviewCount || b.orders || 0) - (a.reviewCount || a.orders || 0)).slice(0, 20);
+            // For empty queries, return featured or popular gigs instead of limiting results
+            return getInitialMarketplaceGigs(gigs, options);
         }
 
         // Check cache if cacheKey is provided
@@ -23,7 +23,8 @@ function recommendGigs(query, gigs, options = {}) {
         // Apply rate limiting if needed
         if (options.ipAddress && !checkRateLimit(options.ipAddress)) {
             console.warn(`[Recommendation] Rate limit exceeded for IP: ${options.ipAddress}`);
-            return gigs.slice(0, 20); // Return default results when rate limited
+            // Even when rate limited, ensure we show initial gigs
+            return getInitialMarketplaceGigs(gigs, options);
         }
 
         // Try to use natural language processing if available
@@ -51,9 +52,64 @@ function recommendGigs(query, gigs, options = {}) {
         }
     } catch (error) {
         console.error('[Recommendation] Error in recommendation service:', error);
-        // In case of any error, return all gigs as last resort
-        return gigs;
+        // In case of any error, still show initial marketplace gigs
+        return getInitialMarketplaceGigs(gigs, options);
     }
+}
+
+/**
+ * Returns gigs for initial marketplace display
+ * Prioritizes featured, popular, and recently added gigs
+ * @param {Array} gigs - List of all available gigs
+ * @param {Object} options - Additional options
+ * @returns {Array} - Gigs to display initially
+ */
+function getInitialMarketplaceGigs(gigs, options = {}) {
+    if (!gigs || !Array.isArray(gigs) || gigs.length === 0) return [];
+    
+    // Create a copy of the array to avoid modifying the original
+    const gigsToProcess = [...gigs];
+    
+    // First, try to get featured gigs if the flag exists
+    const featuredGigs = gigsToProcess.filter(gig => gig.featured === true);
+    
+    // Then get gigs sorted by popularity (orders or reviews)
+    const popularGigs = gigsToProcess.sort((a, b) => {
+        const aPopularity = a.reviewCount || a.orders || 0;
+        const bPopularity = b.reviewCount || b.orders || 0;
+        return bPopularity - aPopularity;
+    });
+    
+    // If we have user preferences, try to include some gigs from preferred categories
+    let recommendedGigs = [];
+    if (options.userPreferences?.favoriteCategories?.length > 0) {
+        recommendedGigs = gigsToProcess.filter(gig => 
+            options.userPreferences.favoriteCategories.includes(gig.category)
+        ).slice(0, 10); // Limit to 10 from preferred categories
+    }
+    
+    // Combine and deduplicate results
+    // Start with featured gigs (if any)
+    let result = [...featuredGigs];
+    
+    // Add recommended gigs based on user preferences
+    recommendedGigs.forEach(gig => {
+        if (!result.some(g => g.id === gig.id)) {
+            result.push(gig);
+        }
+    });
+    
+    // Fill the remaining slots with popular gigs
+    popularGigs.forEach(gig => {
+        if (!result.some(g => g.id === gig.id)) {
+            result.push(gig);
+        }
+    });
+    
+    // Log what we're returning
+    console.log(`[Recommendation] Initial marketplace display: ${result.length} gigs (${featuredGigs.length} featured, ${recommendedGigs.length} recommended)`);
+    
+    return result;
 }
 
 // Simple in-memory cache for recommendations
@@ -272,6 +328,7 @@ function recommendWithNLP(query, gigs, natural, options = {}) {
 
 module.exports = { 
     recommendGigs,
+    getInitialMarketplaceGigs,
     clearCache: () => Object.keys(recommendationCache).forEach(key => delete recommendationCache[key]),
     getCacheStats: () => ({
         size: Object.keys(recommendationCache).length,
