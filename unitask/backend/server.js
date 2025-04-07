@@ -1628,7 +1628,7 @@ app.get('/api/marketplace/gigs', async (req, res) => {
       queryParams.push(category);
     }
     
-    // Fetch active gigs with seller information
+    // Fetch active gigs with seller information - removed reference to review_count column
     const result = await query(
       `SELECT 
         g.id, 
@@ -1638,7 +1638,7 @@ app.get('/api/marketplace/gigs', async (req, res) => {
         g.category,
         g.price,
         g.rating,
-        g.review_count as reviewCount,
+        g.orders,
         g.created_at,
         u.id as seller_id,
         u.display_name as seller_name,
@@ -1652,18 +1652,29 @@ app.get('/api/marketplace/gigs', async (req, res) => {
       queryParams
     );
     
-    const gigs = result.rows;
+    const gigs = result.rows.map(gig => ({
+      ...gig,
+      // Add reviewCount property based on orders column as fallback
+      reviewCount: gig.orders || 0
+    }));
     
-    // Use recommendation service to rank the results (if query provided)
-    const { recommendGigs } = require('./services/recommendationService');
-    const recommendedGigs = recommendGigs(searchQuery, gigs);
+    console.log(`[Marketplace] Fetched ${gigs.length} gigs from database`);
     
-    // Log some debug info
-    console.log(`[Marketplace] Fetched ${gigs.length} gigs, returning ${recommendedGigs.length} recommended gigs`);
+    // Use recommendation service to rank the results
+    let recommendedGigs;
+    try {
+      const { recommendGigs } = require('./services/recommendationService');
+      recommendedGigs = recommendGigs(searchQuery, gigs);
+      console.log(`[Marketplace] Recommendation service returned ${recommendedGigs.length} gigs`);
+    } catch (recError) {
+      console.error('[Marketplace] Error in recommendation service:', recError);
+      // Fallback to just returning all gigs if recommendation fails
+      recommendedGigs = gigs;
+    }
     
     res.json({ 
       success: true, 
-      gigs: recommendedGigs.map(gig => ({
+      gigs: (recommendedGigs || []).map(gig => ({
         ...gig,
         price: gig.price || '$0',
         rating: gig.rating || 0,
