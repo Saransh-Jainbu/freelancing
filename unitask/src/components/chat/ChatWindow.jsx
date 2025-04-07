@@ -83,7 +83,7 @@ const ChatWindow = ({ conversation, currentUser, onSendMessage, onDeleteConversa
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-200px)]">
         {conversation.messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-xs p-3 rounded-lg ${msg.sender_id === currentUser.id ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300'}`}>
