@@ -3,7 +3,9 @@ import { API_URL } from '../constants';
 // Get user gigs
 export const getUserGigs = async (userId) => {
   try {
-    console.log(`[Gigs API] Fetching gigs for user:`, userId);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Gigs API] Fetching gigs for user:`, userId);
+    }
     const response = await fetch(`${API_URL}/api/gigs/${userId}`);
     
     if (!response.ok) {

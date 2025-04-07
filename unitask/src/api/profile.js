@@ -7,7 +7,11 @@ export const getProfile = async (userId) => {
       console.log(`[Profile API] Fetching profile for user:`, userId);
     }
     const data = await apiRequest(`/api/profile/${userId}`);
-    return data.profile;
+    const profile = data.profile;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Fetched profile data:`, profile);
+    }
+    return profile;
   } catch (error) {
     console.error('[Profile API] Profile fetch error:', error);
     throw error;
