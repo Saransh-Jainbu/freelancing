@@ -302,6 +302,7 @@ const ChatPage = () => {
             bg-gray-900 
             border-r border-white/10
             flex flex-col
+            h-full
           `}
         >
           {/* Sidebar Header - Fixed */}
@@ -317,7 +318,7 @@ const ChatPage = () => {
           </div>
           
           {/* Conversation List - This should scroll */}
-          <div className="flex-1 overflow-y-scroll overflow-x-hidden">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {conversations.length > 0 ? (
               <ConversationList
                 conversations={conversations}
@@ -334,14 +335,14 @@ const ChatPage = () => {
         </div>
 
         {/* Chat area - Fixed container */}
-        <div className="flex-1 flex flex-col w-full md:w-auto">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           {error && (
             <div className="bg-red-500/10 text-red-500 p-4 text-center flex-shrink-0">
               {error}
             </div>
           )}
           {activeConversation ? (
-            <>
+            <div className="flex flex-col h-full">
               <ChatHeader
                 participants={getActiveParticipants()}
                 onToggleSidebar={() => setShowSidebar(true)}
@@ -349,16 +350,11 @@ const ChatPage = () => {
                 onDeleteChat={handleDeleteChat}
               />
               
-              {/* Messages area */}
-              <div className="flex-1 overflow-hidden">
+              {/* Messages area - Constrained with fixed height */}
+              <div className="h-full overflow-hidden">
                 <ChatComponent />
               </div>
-              
-              {/* Input area */}
-              <div className="p-4 border-t border-white/10">
-                {/* ...existing input code... */}
-              </div>
-            </>
+            </div>
           ) : (
             <div className="h-full flex items-center justify-center p-4">
               <div className="text-center">
