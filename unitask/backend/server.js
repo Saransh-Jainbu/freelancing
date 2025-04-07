@@ -1667,19 +1667,26 @@ app.get('/api/marketplace/gigs', async (req, res) => {
       
       // If search query is provided, use recommendation algorithm
       // Otherwise, use the initial marketplace display function
-      if (searchQuery) {
+      if (searchQuery && searchQuery.trim()) {
         recommendedGigs = recommendGigs(searchQuery, gigs, {
           ipAddress: req.ip,
           cacheKey: `search:${searchQuery}:category:${category}`,
           userLanguage: req.headers['accept-language']?.split(',')[0] || 'en'
         });
       } else {
+        // Just return all gigs, sorted by popularity when there's no search query
         recommendedGigs = getInitialMarketplaceGigs(gigs, {
           userPreferences: req.session?.userPreferences || {}
         });
       }
       
       console.log(`[Marketplace] Recommendation service returned ${recommendedGigs?.length || 0} gigs`);
+      
+      // Extra check to ensure we have gigs
+      if (!recommendedGigs || recommendedGigs.length === 0) {
+        console.log('[Marketplace] Recommendation service returned no gigs, using all gigs as fallback');
+        recommendedGigs = gigs;
+      }
     } catch (recError) {
       console.error('[Marketplace] Error in recommendation service:', recError);
       // Fallback to just returning all gigs if recommendation fails
@@ -1689,7 +1696,7 @@ app.get('/api/marketplace/gigs', async (req, res) => {
     // Send formatted response
     res.json({ 
       success: true, 
-      gigs: (recommendedGigs || []).map(gig => ({
+      gigs: (recommendedGigs || gigs).map(gig => ({
         ...gig,
         price: gig.price ? `$${gig.price}` : '$0',
         rating: gig.rating || 0,

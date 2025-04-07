@@ -91,7 +91,7 @@ function getInitialMarketplaceGigs(gigs, options = {}) {
         ).slice(0, 10); // Limit to 10 from preferred categories
     }
     
-    // IMPORTANT FIX: Always ensure we return all gigs
+    // IMPORTANT: Always ensure we return ALL gigs, even if there's no search query
     // Start with featured gigs (if any)
     let result = [...featuredGigs];
     
