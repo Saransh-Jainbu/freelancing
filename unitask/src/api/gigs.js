@@ -128,13 +128,26 @@ export const getMarketplaceGigs = async (searchQuery = '', category = '') => {
     }
     
     console.log(`[Gigs API] Fetching marketplace gigs with query: ${searchQuery}, category: ${category}`);
+    console.log(`[Gigs API] Request URL: ${url}`);
+    
     const response = await fetch(url);
+    
+    console.log(`[Gigs API] Response status: ${response.status}`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch marketplace gigs: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    
+    console.log(`[Gigs API] Response data:`, data);
+    console.log(`[Gigs API] Gigs received:`, data.gigs ? data.gigs.length : 'none');
+    
+    if (!data || !data.gigs) {
+      console.warn('[Gigs API] No gigs property in response:', data);
+      return [];
+    }
+    
     return data.gigs;
   } catch (error) {
     console.error('Error fetching marketplace gigs:', error);
