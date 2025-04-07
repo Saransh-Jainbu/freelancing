@@ -67,14 +67,17 @@ function recommendGigs(query, gigs, options = {}) {
 function getInitialMarketplaceGigs(gigs, options = {}) {
     if (!gigs || !Array.isArray(gigs) || gigs.length === 0) return [];
     
+    console.log(`[Recommendation] Initial marketplace: Processing ${gigs.length} gigs`);
+    
     // Create a copy of the array to avoid modifying the original
     const gigsToProcess = [...gigs];
     
     // First, try to get featured gigs if the flag exists
     const featuredGigs = gigsToProcess.filter(gig => gig.featured === true);
+    console.log(`[Recommendation] Found ${featuredGigs.length} featured gigs`);
     
-    // Then get gigs sorted by popularity (orders or reviews)
-    const popularGigs = gigsToProcess.sort((a, b) => {
+    // Get all gigs sorted by popularity (orders or reviews)
+    const popularGigs = [...gigsToProcess].sort((a, b) => {
         const aPopularity = a.reviewCount || a.orders || 0;
         const bPopularity = b.reviewCount || b.orders || 0;
         return bPopularity - aPopularity;
@@ -88,7 +91,7 @@ function getInitialMarketplaceGigs(gigs, options = {}) {
         ).slice(0, 10); // Limit to 10 from preferred categories
     }
     
-    // Combine and deduplicate results
+    // IMPORTANT FIX: Always ensure we return all gigs
     // Start with featured gigs (if any)
     let result = [...featuredGigs];
     
@@ -99,15 +102,24 @@ function getInitialMarketplaceGigs(gigs, options = {}) {
         }
     });
     
-    // Fill the remaining slots with popular gigs
+    // Fill with popular gigs
     popularGigs.forEach(gig => {
         if (!result.some(g => g.id === gig.id)) {
             result.push(gig);
         }
     });
     
-    // Log what we're returning
-    console.log(`[Recommendation] Initial marketplace display: ${result.length} gigs (${featuredGigs.length} featured, ${recommendedGigs.length} recommended)`);
+    // CRITICAL FIX: Ensure ALL gigs are included, even if they weren't featured/popular
+    if (result.length < gigsToProcess.length) {
+        console.log(`[Recommendation] Adding ${gigsToProcess.length - result.length} remaining gigs`);
+        gigsToProcess.forEach(gig => {
+            if (!result.some(g => g.id === gig.id)) {
+                result.push(gig);
+            }
+        });
+    }
+    
+    console.log(`[Recommendation] Initial marketplace display: returning ${result.length} total gigs`);
     
     return result;
 }
