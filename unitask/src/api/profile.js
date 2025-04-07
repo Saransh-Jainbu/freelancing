@@ -3,7 +3,9 @@ import { apiRequest } from './client';
 // Get user profile
 export const getProfile = async (userId) => {
   try {
-    console.log(`[Profile API] Fetching profile for user:`, userId);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Profile API] Fetching profile for user:`, userId);
+    }
     const data = await apiRequest(`/api/profile/${userId}`);
     return data.profile;
   } catch (error) {

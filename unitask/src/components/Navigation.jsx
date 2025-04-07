@@ -32,8 +32,10 @@ const Navigation = () => {
 
   // For debugging
   useEffect(() => {
-    console.log("Navigation currentUser:", currentUser);
-    console.log("Navigation profileData:", profileData);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log("Navigation currentUser:", currentUser);
+      console.log("Navigation profileData:", profileData);
+    }
   }, [currentUser, profileData]);
 
   // Close profile menu when clicking outside
@@ -96,7 +98,9 @@ const Navigation = () => {
   // Default avatar or initials if no avatar is available
   const getAvatarContent = () => {
     const avatarUrl = getAvatarUrl();
-    console.log("Avatar URL being used:", avatarUrl);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log("Avatar URL being used:", avatarUrl);
+    }
     
     if (!avatarError && avatarUrl) {
       return (
