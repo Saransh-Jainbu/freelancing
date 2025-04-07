@@ -61,7 +61,7 @@ const ChatWindow = ({ conversation, currentUser, onSendMessage, onDeleteConversa
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
+      <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
         <div>
           <h2 className="text-lg font-semibold">{conversation.title}</h2>
           <p className="text-sm text-gray-400">{conversation.participants.map(p => p.display_name).join(', ')}</p>
@@ -83,9 +83,9 @@ const ChatWindow = ({ conversation, currentUser, onSendMessage, onDeleteConversa
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-200px)]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-200px)] h-[calc(100vh-200px)]">
         {conversation.messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
+          <div key={msg.id} className={`flex ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'} mb-3`}>
             <div className={`max-w-xs p-3 rounded-lg ${msg.sender_id === currentUser.id ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-300'}`}>
               <p className="text-sm">{msg.content}</p>
               <p className="text-xs text-gray-400 mt-1">{format(new Date(msg.created_at), 'p')}</p>
@@ -94,7 +94,7 @@ const ChatWindow = ({ conversation, currentUser, onSendMessage, onDeleteConversa
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 flex-shrink-0">
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4 text-red-300 text-sm flex items-center gap-2">
             <AlertCircle className="w-5 h-5" />

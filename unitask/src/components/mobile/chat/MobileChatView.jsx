@@ -22,8 +22,8 @@ const MobileChatView = ({ conversationId, currentUser, onBack, onSendMessage }) 
 
   return (
     <div className="h-[100vh] flex flex-col bg-black fixed inset-0 z-50">
-      {/* Header */}
-      <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-gray-900">
+      {/* Header - Fixed at top with flex-shrink-0 */}
+      <div className="p-4 border-b border-white/10 flex items-center gap-3 bg-gray-900 flex-shrink-0">
         <button onClick={onBack} className="p-2 -ml-2">
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -35,7 +35,7 @@ const MobileChatView = ({ conversationId, currentUser, onBack, onSendMessage }) 
       </div>
 
       {/* Messages - Fixed height with scrolling */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-130px)]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-130px)] h-[calc(100vh-130px)]">
         {messages.map(message => (
           <div
             key={message.id}
@@ -58,8 +58,8 @@ const MobileChatView = ({ conversationId, currentUser, onBack, onSendMessage }) 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - Fixed at bottom */}
-      <div className="p-4 border-t border-white/10 bg-gray-900">
+      {/* Input - Fixed at bottom with flex-shrink-0 */}
+      <div className="p-4 border-t border-white/10 bg-gray-900 flex-shrink-0">
         <form onSubmit={handleSend} className="flex gap-2">
           <input
             type="text"

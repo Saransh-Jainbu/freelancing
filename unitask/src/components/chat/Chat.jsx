@@ -104,7 +104,7 @@ const ChatComponent = () => {
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="flex-1 overflow-y-auto p-4 max-h-[calc(100vh-180px)] scrollbar-thin scrollbar-thumb-gray-600">
+      <div className="flex-1 overflow-y-auto p-4 max-h-[calc(100vh-180px)] h-[calc(100vh-180px)] scrollbar-thin scrollbar-thumb-gray-600">
         {messages.map((message) => (
           <div key={message.id} className={`flex mb-3 ${message.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
             {message.sender_id !== currentUser.id && (
@@ -124,7 +124,7 @@ const ChatComponent = () => {
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 flex-shrink-0">
         <div className="flex items-center gap-2">
           <input
             type="text"
