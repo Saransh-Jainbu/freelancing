@@ -57,11 +57,13 @@ app.use('/api/health', healthRoutes);
 // Import routes
 const ordersRoutes = require('./routes/orders');
 const notificationsRoutes = require('./routes/notifications');
+const gigsRoutes = require('./routes/gigs');
 const { sendPushNotification } = require('./routes/notifications');
 
 // Register routes
 app.use('/api/orders', ordersRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/gigs', gigsRoutes);
 
 // Define this direct route handler first, before registering route modules
 app.put('/api/orders/:orderId/status', async (req, res) => {
@@ -1611,6 +1613,9 @@ app.delete('/api/gigs/:gigId', async (req, res) => {
 // Public Gigs Routes - Modified with better error handling
 app.get('/api/marketplace/gigs', async (req, res) => {
   try {
+    const searchQuery = req.query.q || '';
+    
+    // Fetch all active gigs with seller information
     const result = await query(
       `SELECT 
         g.id, 
@@ -1620,6 +1625,7 @@ app.get('/api/marketplace/gigs', async (req, res) => {
         g.category,
         g.price,
         g.rating,
+        g.review_count as reviewCount,
         g.created_at,
         u.id as seller_id,
         u.display_name as seller_name,
@@ -1629,14 +1635,22 @@ app.get('/api/marketplace/gigs', async (req, res) => {
       FROM gigs g
       JOIN users u ON g.user_id = u.id
       LEFT JOIN profiles p ON u.id = p.user_id
-      WHERE g.status = 'active'
-      ORDER BY g.created_at DESC`,
+      WHERE g.status = 'active'`,
       []
     );
     
+    const gigs = result.rows;
+    
+    // Use recommendation service to rank the results (if query provided)
+    const { recommendGigs } = require('./services/recommendationService');
+    const recommendedGigs = recommendGigs(searchQuery, gigs);
+    
+    // Log some debug info
+    console.log(`[Marketplace] Fetched ${gigs.length} gigs, returning ${recommendedGigs.length} recommended gigs`);
+    
     res.json({ 
       success: true, 
-      gigs: result.rows.map(gig => ({
+      gigs: recommendedGigs.map(gig => ({
         ...gig,
         price: gig.price || '$0',
         rating: gig.rating || 0,
@@ -1644,10 +1658,10 @@ app.get('/api/marketplace/gigs', async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Public gigs fetch error:', error);
+    console.error('Marketplace gigs fetch error:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Server error fetching gigs',
+      message: 'Server error fetching marketplace gigs',
       error: error.message 
     });
   }
