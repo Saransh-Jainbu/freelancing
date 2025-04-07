@@ -1614,8 +1614,21 @@ app.delete('/api/gigs/:gigId', async (req, res) => {
 app.get('/api/marketplace/gigs', async (req, res) => {
   try {
     const searchQuery = req.query.q || '';
+    const category = req.query.category || '';
     
-    // Fetch all active gigs with seller information
+    console.log(`[Marketplace] Received request with query: "${searchQuery}", category: "${category}"`);
+    
+    // Build query based on filters
+    let whereClause = "g.status = 'active'";
+    const queryParams = [];
+    
+    // Add category filter if provided
+    if (category) {
+      whereClause += " AND g.category = $1";
+      queryParams.push(category);
+    }
+    
+    // Fetch active gigs with seller information
     const result = await query(
       `SELECT 
         g.id, 
@@ -1635,8 +1648,8 @@ app.get('/api/marketplace/gigs', async (req, res) => {
       FROM gigs g
       JOIN users u ON g.user_id = u.id
       LEFT JOIN profiles p ON u.id = p.user_id
-      WHERE g.status = 'active'`,
-      []
+      WHERE ${whereClause}`,
+      queryParams
     );
     
     const gigs = result.rows;

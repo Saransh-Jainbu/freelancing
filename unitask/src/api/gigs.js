@@ -107,9 +107,28 @@ export const getGigDetails = async (gigId) => {
 };
 
 // Get marketplace gigs
-export const getMarketplaceGigs = async () => {
+export const getMarketplaceGigs = async (searchQuery = '', category = '') => {
   try {
-    const response = await fetch(`${API_URL}/api/marketplace/gigs`);
+    // Build URL with query parameters
+    let url = `${API_URL}/api/marketplace/gigs`;
+    const params = new URLSearchParams();
+    
+    if (searchQuery) {
+      params.append('q', searchQuery);
+    }
+    
+    if (category && category !== 'all') {
+      params.append('category', category);
+    }
+    
+    // Append query parameters if any exist
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+    
+    console.log(`[Gigs API] Fetching marketplace gigs with query: ${searchQuery}, category: ${category}`);
+    const response = await fetch(url);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch marketplace gigs: ${response.status} ${response.statusText}`);

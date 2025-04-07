@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Loader, AlertCircle, Search } from 'lucide-react';
 import { getMarketplaceGigs } from '../../api/gigs';
@@ -9,34 +9,53 @@ const MarketplacePage = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
 
+  // Debounce search query to avoid too many API calls
   useEffect(() => {
-    const fetchGigs = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const data = await getMarketplaceGigs();
-        console.log('Fetched gigs:', data); // Debug log
-        setGigs(data || []);
-      } catch (err) {
-        console.error('Failed to load gigs:', err);
-        setError(err.message || 'Failed to load gigs');
-      } finally {
-        setLoading(false);
-      }
-    };
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
 
-    fetchGigs();
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch gigs whenever search query or category changes
+  const fetchGigs = useCallback(async (query, category) => {
+    try {
+      setSearching(true);
+      setError('');
+      const data = await getMarketplaceGigs(query, category);
+      console.log(`Fetched ${data ? data.length : 0} gigs for query: ${query}, category: ${category}`);
+      setGigs(data || []);
+    } catch (err) {
+      console.error('Failed to load gigs:', err);
+      setError(err.message || 'Failed to load gigs');
+    } finally {
+      setLoading(false);
+      setSearching(false);
+    }
   }, []);
 
-  const filteredGigs = gigs.filter(gig => {
-    const matchesSearch = gig.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         gig.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || gig.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Initial load
+  useEffect(() => {
+    setLoading(true);
+    fetchGigs('', 'all');
+  }, [fetchGigs]);
 
-  if (loading) {
+  // Fetch when search or category changes
+  useEffect(() => {
+    fetchGigs(debouncedSearchQuery, selectedCategory);
+  }, [debouncedSearchQuery, selectedCategory, fetchGigs]);
+
+  // When category changes, fetch immediately
+  const handleCategoryChange = (e) => {
+    const category = e.target.value;
+    setSelectedCategory(category);
+  };
+
+  if (loading && !searching) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <Loader className="w-8 h-8 text-purple-500 animate-spin" />
@@ -76,11 +95,16 @@ const MarketplacePage = () => {
               placeholder="Search gigs..."
               className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
+            {searching && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Loader className="w-4 h-4 text-gray-400 animate-spin" />
+              </div>
+            )}
           </div>
           
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={handleCategoryChange}
             className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           >
             <option value="all">All Categories</option>
@@ -93,7 +117,7 @@ const MarketplacePage = () => {
 
         {/* Gigs Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredGigs.map((gig) => (
+          {gigs.map((gig) => (
             <Link
               key={gig.id}
               to={`/gig/${gig.id}`}
@@ -108,8 +132,8 @@ const MarketplacePage = () => {
                     className="w-10 h-10 rounded-full object-cover"
                   />
                   <div>
-                    <h3 className="font-medium">{gig.seller_name}</h3>
-                    <p className="text-sm text-gray-400">{gig.seller_title}</p>
+                    <h3 className="font-medium">{gig.seller_name || "Seller"}</h3>
+                    <p className="text-sm text-gray-400">{gig.seller_title || "Freelancer"}</p>
                   </div>
                 </div>
 
@@ -129,7 +153,7 @@ const MarketplacePage = () => {
         </div>
 
         {/* Empty State */}
-        {filteredGigs.length === 0 && (
+        {gigs.length === 0 && !loading && (
           <div className="text-center py-12">
             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">No gigs found</h3>
