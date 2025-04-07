@@ -265,6 +265,10 @@ const ChatComponent = () => {
                       src={getAvatarUrl(message.sender)} 
                       alt={message.sender?.display_name || 'User'}
                       className="h-8 w-8 rounded-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null; // Prevent infinite loop
+                        e.target.src = '/path/to/default-avatar.png'; // Replace with default avatar path
+                      }}
                     />
                   ) : (
                     <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-400 to-pink-600 flex items-center justify-center text-white font-bold text-sm">
