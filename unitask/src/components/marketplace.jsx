@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { Search, Star, DollarSign, Filter, Briefcase, Loader, AlertCircle, ArrowUpRight } from 'lucide-react';
+import { API_URL } from '../constants';
 
 const Marketplace = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -11,6 +11,7 @@ const Marketplace = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [debugResponse, setDebugResponse] = useState(null);
 
   const categories = [
     'All Categories',
@@ -29,9 +30,20 @@ const Marketplace = () => {
     const loadGigs = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/gigs');
-        setGigs(response.data.gigs);
-        setFilteredGigs(response.data.gigs);
+        console.log('Fetching gigs from:', `${API_URL}/api/marketplace/gigs`);
+        
+        const response = await fetch(`${API_URL}/api/marketplace/gigs`);
+        const data = await response.json();
+        
+        console.log('API Response:', data);
+        setDebugResponse(data);
+        
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to load gigs');
+        }
+        
+        setGigs(data.gigs || []);
+        setFilteredGigs(data.gigs || []);
       } catch (error) {
         console.error("Error loading marketplace gigs:", error);
         setError("Failed to load gigs. Please try again.");
@@ -48,12 +60,10 @@ const Marketplace = () => {
     
     let result = [...gigs];
     
-    // Apply category filter
     if (selectedCategory && selectedCategory !== 'All Categories') {
       result = result.filter(gig => gig.category === selectedCategory);
     }
     
-    // Apply search filter
     if (searchQuery) {
       const lowerSearchTerm = searchQuery.toLowerCase();
       result = result.filter(gig => 
@@ -67,11 +77,36 @@ const Marketplace = () => {
 
   const handleSearch = async () => {
     try {
-      const response = await axios.get(`/api/gigs/search?q=${searchQuery}`);
-      setGigs(response.data.gigs);
-      setMessage(response.data.message || '');
+      setLoading(true);
+      const url = new URL(`${API_URL}/api/marketplace/gigs`);
+      
+      if (searchQuery) {
+        url.searchParams.append('q', searchQuery);
+      }
+      
+      if (selectedCategory && selectedCategory !== 'All Categories') {
+        url.searchParams.append('category', selectedCategory);
+      }
+      
+      console.log('Searching with URL:', url.toString());
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('Search response:', data);
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Search failed');
+      }
+      
+      setGigs(data.gigs || []);
+      setFilteredGigs(data.gigs || []);
+      setMessage(data.message || '');
     } catch (error) {
-      console.error('Error fetching gigs:', error);
+      console.error('Error searching gigs:', error);
+      setError(error.message || 'Error searching gigs');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -90,7 +125,6 @@ const Marketplace = () => {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 to-pink-900/40 z-0"></div>
         <div className="absolute inset-0 bg-[url('/images/grid-pattern.svg')] opacity-10 z-0"></div>
@@ -126,9 +160,7 @@ const Marketplace = () => {
         </div>
       </div>
       
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-10">
-        {/* Categories Filter */}
         <div className="mb-10">
           <div className="flex items-center mb-4">
             <Filter className="w-5 h-5 mr-2 text-purple-400" />
@@ -162,7 +194,6 @@ const Marketplace = () => {
 
         {message && <p className="text-center text-gray-400 mb-6">{message}</p>}
 
-        {/* No Results Message */}
         {filteredGigs?.length === 0 && !loading && !error && (
           <div className="text-center py-16">
             <Briefcase className="w-16 h-16 text-gray-600 mx-auto mb-4" />
@@ -182,7 +213,6 @@ const Marketplace = () => {
           </div>
         )}
 
-        {/* Gigs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredGigs?.map(gig => (
             <Link to={`/gig/${gig.id}`} key={gig.id} className="group">
