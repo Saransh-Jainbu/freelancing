@@ -139,6 +139,25 @@ const ChatComponent = () => {
     fetchMessages();
   }, [socket, conversationId, currentUser, navigate, isFirstLoad]);
 
+  // Preload avatars for all unique senders in the messages
+  useEffect(() => {
+    const preloadAvatars = async () => {
+      if (!conversation || !messages.length) return;
+
+      const uniqueSenderIds = [...new Set(messages.map((msg) => msg.sender_id))];
+
+      for (const senderId of uniqueSenderIds) {
+        if (!participantAvatars[senderId]) {
+          await fetchUserAvatar(senderId);
+        }
+      }
+
+      setLoadingAvatars(false);
+    };
+
+    preloadAvatars();
+  }, [conversation, messages]);
+
   // Show initial message prompt if new conversation
   useEffect(() => {
     if (isNewConversation && !loading) {
