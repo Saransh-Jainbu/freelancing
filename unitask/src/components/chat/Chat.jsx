@@ -47,6 +47,9 @@ const ChatComponent = () => {
         [userId]: avatarUrl
       }));
 
+      // Trigger re-render by updating state
+      setMessages((prevMessages) => [...prevMessages]);
+
       return avatarUrl;
     } catch (error) {
       console.error(`Error fetching avatar for user ${userId}:`, error);
@@ -54,6 +57,10 @@ const ChatComponent = () => {
         ...prev,
         [userId]: '/path/to/default-avatar.png'
       }));
+
+      // Trigger re-render by updating state
+      setMessages((prevMessages) => [...prevMessages]);
+
       return '/path/to/default-avatar.png';
     }
   };
