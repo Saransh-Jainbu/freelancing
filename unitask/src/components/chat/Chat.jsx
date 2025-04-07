@@ -171,6 +171,26 @@ const ChatComponent = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = async (message) => {
+      // Fetch avatar for the sender if not already fetched
+      if (!participantAvatars[message.sender_id]) {
+        await fetchUserAvatar(message.sender_id);
+      }
+
+      // Add the new message to the state
+      setMessages((prevMessages) => [...prevMessages, message]);
+    };
+
+    socket.on('new-message', handleNewMessage);
+
+    return () => {
+      socket.off('new-message', handleNewMessage);
+    };
+  }, [socket, participantAvatars]);
+
   const handleSendMessage = () => {
     if (!input.trim() || !socket) return;
     
