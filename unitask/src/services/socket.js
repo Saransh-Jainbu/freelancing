@@ -10,7 +10,9 @@ export const initializeSocket = () => {
     socket = io(baseUrl);
     
     socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Socket connected:', socket.id);
+      }
     });
     
     socket.on('disconnect', () => {
