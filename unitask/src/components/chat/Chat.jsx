@@ -104,27 +104,38 @@ const ChatComponent = () => {
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="flex-1 overflow-y-auto p-4 max-h-[calc(100vh-180px)] h-[calc(100vh-180px)] scrollbar-thin scrollbar-thumb-gray-600">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 h-[calc(100vh-180px)] scrollbar-thin scrollbar-thumb-gray-600">
         {messages.map((message) => (
-          <div key={message.id} className={`flex mb-3 ${message.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
-            {message.sender_id !== currentUser.id && (
-              <img
-                src={avatars[message.sender_id] || '/path/to/default-avatar.png'}
-                alt="Avatar"
-                className="h-8 w-8 rounded-full object-cover mr-2"
-                onError={(e) => {
-                  e.target.src = '/path/to/default-avatar.png';
-                }}
-              />
-            )}
-            <div className={`p-2 rounded-lg max-w-[70%] ${message.sender_id === currentUser.id ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-200'}`}>
-              {message.content}
+          <div key={message.id} className={`flex ${message.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
+            <div className="flex max-w-[80%]">
+              {message.sender_id !== currentUser.id && (
+                <img
+                  src={avatars[message.sender_id] || '/path/to/default-avatar.png'}
+                  alt="Avatar"
+                  className="w-8 h-8 rounded-full object-cover mr-2 self-end"
+                  onError={(e) => {
+                    e.target.src = '/path/to/default-avatar.png';
+                  }}
+                />
+              )}
+              <div>
+                <div className={`p-3 rounded-2xl ${
+                  message.sender_id === currentUser.id 
+                    ? 'bg-gradient-to-r from-purple-700 to-pink-700 text-white rounded-br-none' 
+                    : 'bg-white/10 rounded-bl-none'
+                }`}>
+                  {message.content}
+                </div>
+                <div className={`text-xs text-gray-400 mt-1 ${message.sender_id === currentUser.id ? 'text-right' : 'text-left'}`}>
+                  {new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                </div>
+              </div>
             </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <div className="p-4 border-t border-white/10 flex-shrink-0">
+      <div className="p-4 border-t border-white/10 flex-shrink-0 bg-gray-900">
         <div className="flex items-center gap-2">
           <input
             type="text"

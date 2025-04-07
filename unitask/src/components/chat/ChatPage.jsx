@@ -209,7 +209,7 @@ const ChatPage = () => {
     );
   }
 
-  // Desktop render logic remains unchanged
+  // Desktop render logic
   return (
     <div className="h-[calc(100vh-64px)] bg-black text-white overflow-hidden">
       {/* New Chat Modal */}
@@ -342,7 +342,8 @@ const ChatPage = () => {
             </div>
           )}
           {activeConversation ? (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full relative">
+              {/* ChatHeader is already sticky */}
               <ChatHeader
                 participants={getActiveParticipants()}
                 onToggleSidebar={() => setShowSidebar(true)}
@@ -350,8 +351,8 @@ const ChatPage = () => {
                 onDeleteChat={handleDeleteChat}
               />
               
-              {/* Messages area - Constrained with fixed height */}
-              <div className="h-full overflow-hidden">
+              {/* Messages area with proper constraints */}
+              <div className="flex-1 overflow-hidden">
                 <ChatComponent />
               </div>
             </div>
