@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Loader, AlertCircle, Search } from 'lucide-react';
 import { getMarketplaceGigs } from '../../api/gigs';
+import { API_URL } from '../../constants';
 
 const MarketplacePage = () => {
   const [gigs, setGigs] = useState([]);
@@ -27,9 +28,23 @@ const MarketplacePage = () => {
       setSearching(true);
       setError('');
       console.log(`Fetching gigs with query: "${query}", category: ${category}`);
-      const data = await getMarketplaceGigs(query, category);
-      console.log(`Fetched ${data ? data.length : 0} gigs`);
-      setGigs(data || []);
+      
+      // Direct fetch for debugging
+      const url = `${API_URL}/api/marketplace/gigs${query || category !== 'all' ? '?' : ''}${query ? `q=${query}` : ''}${query && category !== 'all' ? '&' : ''}${category !== 'all' ? `category=${category}` : ''}`;
+      console.log('DEBUG: Fetching from URL:', url);
+      
+      const response = await fetch(url);
+      const jsonData = await response.json();
+      console.log('DEBUG: Raw API response:', jsonData);
+      
+      if (!jsonData.success) {
+        throw new Error(jsonData.message || 'API returned unsuccessful response');
+      }
+      
+      console.log(`DEBUG: Gigs count in response: ${jsonData.gigs ? jsonData.gigs.length : 0}`);
+      console.log('DEBUG: First few gigs:', jsonData.gigs?.slice(0, 2));
+      
+      setGigs(jsonData.gigs || []);
     } catch (err) {
       console.error('Failed to load gigs:', err);
       setError(err.message || 'Failed to load gigs');
