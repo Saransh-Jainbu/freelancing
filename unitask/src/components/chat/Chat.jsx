@@ -181,31 +181,17 @@ const ChatComponent = () => {
 
   // Get avatar URL for a sender with proper fallbacks
   const getAvatarUrl = (sender) => {
-    if (!sender) return null;
-    
+    if (!sender) return '/path/to/default-avatar.png';
+
     if (sender.id === currentUser?.id) {
-      // For current user
-      return currentUser?.avatar_url || currentUser?.photoURL || null;
+      return currentUser?.avatar_url || currentUser?.photoURL || '/path/to/default-avatar.png';
     } else {
-      // For other participants - first check our cache
       if (participantAvatars[sender.id] !== undefined) {
-        return participantAvatars[sender.id];
+        return participantAvatars[sender.id] || '/path/to/default-avatar.png';
       }
-      
-      // If avatar isn't in cache but sender has avatar_url, use and cache it
-      if (sender.avatar_url) {
-        // Store it for next time
-        setParticipantAvatars(prev => ({
-          ...prev,
-          [sender.id]: sender.avatar_url
-        }));
-        return sender.avatar_url;
-      }
-      
-      // If we get here, we need to fetch the avatar
-      // We'll trigger a fetch but return null for now
+
       fetchUserAvatar(sender.id);
-      return null;
+      return '/path/to/default-avatar.png';
     }
   };
 
