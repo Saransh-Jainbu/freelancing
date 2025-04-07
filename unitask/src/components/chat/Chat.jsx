@@ -18,6 +18,8 @@ const ChatComponent = () => {
   const [socket, setSocket] = useState(null);
   const [avatars, setAvatars] = useState({});
   const messagesEndRef = useRef(null);
+  const prevMessagesLengthRef = useRef(0);
+  const initialLoadRef = useRef(true);
 
   useEffect(() => {
     const newSocket = io(API_URL);
@@ -42,6 +44,8 @@ const ChatComponent = () => {
         const data = await response.json();
         setParticipants(data.conversation.participants);
         setMessages(data.messages);
+        initialLoadRef.current = true;
+        prevMessagesLengthRef.current = data.messages.length;
 
         const avatarPromises = data.conversation.participants.map(async (participant) => {
           if (participant.id !== currentUser.id) {
@@ -78,8 +82,19 @@ const ChatComponent = () => {
     };
   }, [socket]);
 
+  // Only scroll to bottom on new messages, not on initial load
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Skip scrolling on initial load of an existing conversation
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+    
+    // Scroll only when a new message is added
+    if (messages.length > prevMessagesLengthRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      prevMessagesLengthRef.current = messages.length;
+    }
   }, [messages]);
 
   const handleSendMessage = () => {
@@ -92,6 +107,15 @@ const ChatComponent = () => {
     });
 
     setInput('');
+  };
+
+  // Scroll to bottom when sending a new message
+  const handleSendAndScroll = () => {
+    handleSendMessage();
+    // We want to scroll immediately when the user sends a message
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   if (loading) {
@@ -142,13 +166,13 @@ const ChatComponent = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSendMessage();
+              if (e.key === 'Enter') handleSendAndScroll();
             }}
             className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="Type a message..."
           />
           <button 
-            onClick={handleSendMessage} 
+            onClick={handleSendAndScroll} 
             className="p-3 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity"
           >
             <Send className="w-5 h-5" />

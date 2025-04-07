@@ -10,7 +10,7 @@ const ChatHeader = ({ participants, onToggleSidebar, showSidebarToggle, onDelete
   const navigate = useNavigate();
   
   return (
-    <div className="sticky top-0 z-20 p-4 border-b border-white/10 flex items-center gap-3 bg-gray-900/95 backdrop-blur-sm">
+    <div className="sticky top-0 z-40 p-4 border-b border-white/10 flex items-center gap-3 bg-gray-900/95 backdrop-blur-sm">
       {/* Mobile back button */}
       <button 
         onClick={() => navigate('/chat')}
@@ -66,7 +66,7 @@ const ChatHeader = ({ participants, onToggleSidebar, showSidebarToggle, onDelete
             />
             
             {/* Dropdown menu */}
-            <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-gray-900/95 backdrop-blur-sm border border-white/10 py-1 z-40">
+            <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-gray-900/95 backdrop-blur-sm border border-white/10 py-1 z-50">
               <Link
                 to={`/profile/${displayParticipant.id}`}
                 className="px-4 py-2 text-sm text-gray-300 hover:bg-white/5 flex items-center gap-2"
