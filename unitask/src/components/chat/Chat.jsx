@@ -197,7 +197,10 @@ const ChatComponent = () => {
         return participantAvatars[sender.id] || '/path/to/default-avatar.png';
       }
 
-      fetchUserAvatar(sender.id);
+      // Fetch avatar asynchronously and trigger re-render
+      fetchUserAvatar(sender.id).then(() => {
+        setMessages((prevMessages) => [...prevMessages]);
+      });
       return '/path/to/default-avatar.png';
     }
   };
