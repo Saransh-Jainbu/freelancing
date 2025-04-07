@@ -27,11 +27,9 @@ const ChatComponent = () => {
 
   // Fetch user avatar and store it
   const fetchUserAvatar = async (userId) => {
-    // Skip if we already have this avatar
     if (participantAvatars[userId]) return participantAvatars[userId];
-    
+
     try {
-      // First check if participant already has avatar_url
       const existingParticipant = participants.find(p => p.id === userId);
       if (existingParticipant?.avatar_url) {
         setParticipantAvatars(prev => ({
@@ -40,26 +38,23 @@ const ChatComponent = () => {
         }));
         return existingParticipant.avatar_url;
       }
-      
-      // Otherwise fetch from profile
+
       const profileData = await getProfile(userId);
-      const avatarUrl = profileData?.avatar_url || null;
-      
-      // Update state with the new avatar
+      const avatarUrl = profileData?.avatar_url || '/path/to/default-avatar.png';
+
       setParticipantAvatars(prev => ({
         ...prev,
         [userId]: avatarUrl
       }));
-      
+
       return avatarUrl;
     } catch (error) {
       console.error(`Error fetching avatar for user ${userId}:`, error);
-      // Still update the state to prevent continuous retries
       setParticipantAvatars(prev => ({
         ...prev,
-        [userId]: null
+        [userId]: '/path/to/default-avatar.png'
       }));
-      return null;
+      return '/path/to/default-avatar.png';
     }
   };
 
