@@ -13,18 +13,18 @@ router.get('/search', async (req, res) => {
     try {
         // Fetch gigs from the database
         const result = await query(
-            `SELECT id, title, description, category, price FROM gigs WHERE status = 'active'`
+            `SELECT id, title, description, category, price, review_count as reviewCount FROM gigs WHERE status = 'active'`
         );
         const gigs = result.rows;
 
         // Find recommended gigs
         const recommendations = recommendGigs(searchQuery, gigs);
 
-        if (recommendations.length > 0) {
-            res.json({ success: true, gigs: recommendations });
-        } else {
-            res.json({ success: true, message: 'No exact matches found. Here are some similar gigs.', gigs: gigs });
-        }
+        // If no recommendations, return gigs with high review counts as fallback
+        const fallbackGigs = gigs.sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 10);
+        const resultGigs = recommendations.length > 0 ? recommendations : fallbackGigs;
+
+        res.json({ success: true, gigs: resultGigs });
     } catch (error) {
         console.error('Error fetching gigs:', error);
         res.status(500).json({ success: false, message: 'Server error fetching gigs' });
