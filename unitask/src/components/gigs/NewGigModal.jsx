@@ -260,7 +260,7 @@ const NewGigModal = ({ isOpen, onClose, userId, onGigAdded }) => {
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white [&>option]:text-black"
               >
                 <option value="">Select a category</option>
                 <option value="Web Development">Web Development</option>
