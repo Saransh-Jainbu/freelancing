@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, CheckCircle, Shield, Clock, AlertCircle, Repeat, Loader } from 'lucide-react';
 import { useAuth } from '../../context/AuthContextValue';
 import { API_URL } from '../../api/constants';
@@ -11,24 +11,19 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
   const [activeStep, setActiveStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Log the gig data for debugging
+  console.log("Gig data in OrderModal:", gig);
+  console.log("Packages data:", gig?.packages);
   
   // Safely extract the price with fallbacks
   const safePrice = gig && gig.price 
-    ? parseFloat(gig.price.replace(/[^0-9.]/g, '') || '0') 
+    ? parseFloat(gig.price.toString().replace(/[^0-9.]/g, '') || '0') 
     : 0;
-    
-  const [orderData, setOrderData] = useState({
-    gig_id: gig?.id,
-    client_id: currentUser?.id,
-    requirements: '',
-    delivery_time: 7,
-    package: 'basic',
-    quantity: 1,
-    amount: safePrice
-  });
-
-  // Use gig packages if available, otherwise use default packages
-  const gigPackages = (gig && gig.packages) ? gig.packages : {
+  
+  // Setup default packages if none provided from backend
+  const defaultPackages = {
     basic: {
       price: safePrice,
       delivery_days: 7,
@@ -48,6 +43,21 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
       features: ['Premium service', 'Fastest delivery', 'Premium support']
     }
   };
+    
+  const [orderData, setOrderData] = useState({
+    gig_id: gig?.id,
+    client_id: currentUser?.id,
+    requirements: '',
+    delivery_time: (gig?.packages?.basic?.delivery_days || 7),
+    package: 'basic',
+    quantity: 1,
+    amount: safePrice
+  });
+
+  // Use gig packages if available, otherwise use default packages
+  const gigPackages = (gig && gig.packages && Object.keys(gig.packages).length > 0) 
+    ? gig.packages 
+    : defaultPackages;
 
   // Transform gigPackages into the format needed for UI
   const packages = Object.keys(gigPackages).map(id => ({
@@ -134,6 +144,15 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
 
   // Render different steps based on activeStep
   const renderStepContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-10">
+          <Loader className="w-8 h-8 text-purple-500 animate-spin mb-4" />
+          <p>Loading package details...</p>
+        </div>
+      );
+    }
+
     switch (activeStep) {
       case 1:
         return (
