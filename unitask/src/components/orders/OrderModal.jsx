@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Calendar, DollarSign, CheckCircle, Shield, Clock, AlertCircle, Repeat } from 'lucide-react';
+import { X, Calendar, DollarSign, CheckCircle, Shield, Clock, AlertCircle, Repeat, Loader } from 'lucide-react';
 import { useAuth } from '../../context/AuthContextValue';
 import { API_URL } from '../../api/constants';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,12 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
   const [activeStep, setActiveStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  
+  // Safely extract the price with fallbacks
+  const safePrice = gig && gig.price 
+    ? parseFloat(gig.price.replace(/[^0-9.]/g, '') || '0') 
+    : 0;
+    
   const [orderData, setOrderData] = useState({
     gig_id: gig?.id,
     client_id: currentUser?.id,
@@ -18,25 +24,25 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
     delivery_time: 7,
     package: 'basic',
     quantity: 1,
-    amount: parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0')
+    amount: safePrice
   });
 
   // Use gig packages if available, otherwise use default packages
-  const gigPackages = gig.packages || {
+  const gigPackages = (gig && gig.packages) ? gig.packages : {
     basic: {
-      price: parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0'),
+      price: safePrice,
       delivery_days: 7,
       revisions: 1,
       features: ['Basic service']
     },
     standard: {
-      price: parseFloat((parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0') * 1.5).toFixed(2)),
+      price: parseFloat((safePrice * 1.5).toFixed(2)),
       delivery_days: 5,
       revisions: 2,
       features: ['Standard service', 'Faster delivery']
     },
     premium: {
-      price: parseFloat((parseFloat(gig?.price?.replace(/[^0-9.]/g, '') || '0') * 2).toFixed(2)),
+      price: parseFloat((safePrice * 2).toFixed(2)),
       delivery_days: 3,
       revisions: 5,
       features: ['Premium service', 'Fastest delivery', 'Premium support']
@@ -213,7 +219,7 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
             <h3 className="font-semibold text-lg mb-4">Order Summary</h3>
             <div className="space-y-4">
               <div className="bg-white/5 rounded-lg p-4">
-                <h4 className="font-medium mb-3">{gig.title}</h4>
+                <h4 className="font-medium mb-3">{gig?.title || 'Service'}</h4>
                 <div className="flex justify-between py-2 border-b border-white/10">
                   <span>{selectedPackage.name} Package</span>
                   <span>${selectedPackage.price}</span>
@@ -343,7 +349,7 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
               >
                 {isSubmitting ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <Loader className="w-4 h-4 animate-spin" />
                     Processing...
                   </>
                 ) : (
