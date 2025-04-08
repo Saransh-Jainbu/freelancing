@@ -64,18 +64,37 @@ const OrderModal = ({ gig, onClose, onOrderSuccess }) => {
   const selectedPackage = packages.find(pkg => pkg.id === orderData.package) || packages[0];
 
   const updateOrderData = (field, value) => {
-    setOrderData(prev => ({
-      ...prev,
-      [field]: value,
-      amount: field === 'quantity' 
-        ? selectedPackage.price * value 
-        : field === 'package' 
-          ? packages.find(p => p.id === value).price * orderData.quantity
-          : prev.amount,
-      delivery_time: field === 'package'
-        ? packages.find(p => p.id === value).delivery_time
-        : prev.delivery_time
-    }));
+    setOrderData(prev => {
+      // If updating package, safely find the package
+      let packageToUse = null;
+      if (field === 'package') {
+        packageToUse = packages.find(p => p.id === value);
+        if (!packageToUse) {
+          console.error(`Package with ID ${value} not found`);
+          packageToUse = packages[0]; // Fallback to first package
+        }
+      }
+      
+      // Calculate the new amount based on field being updated
+      let newAmount = prev.amount;
+      if (field === 'quantity') {
+        newAmount = selectedPackage ? selectedPackage.price * value : prev.amount;
+      } else if (field === 'package' && packageToUse) {
+        newAmount = packageToUse.price * prev.quantity;
+      }
+      
+      // Calculate new delivery time
+      const newDeliveryTime = (field === 'package' && packageToUse) 
+        ? packageToUse.delivery_time 
+        : prev.delivery_time;
+      
+      return {
+        ...prev,
+        [field]: value,
+        amount: newAmount,
+        delivery_time: newDeliveryTime
+      };
+    });
   };
 
   const handleSubmitOrder = async () => {
