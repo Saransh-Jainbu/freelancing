@@ -58,12 +58,14 @@ app.use('/api/health', healthRoutes);
 const ordersRoutes = require('./routes/orders');
 const notificationsRoutes = require('./routes/notifications');
 const gigsRoutes = require('./routes/gigs');
+const internshipsRoutes = require('./routes/internships');
 const { sendPushNotification } = require('./routes/notifications');
 
 // Register routes
 app.use('/api/orders', ordersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/gigs', gigsRoutes);
+app.use('/internships', internshipsRoutes); // Register internships route
 
 // Define this direct route handler first, before registering route modules
 app.put('/api/orders/:orderId/status', async (req, res) => {
