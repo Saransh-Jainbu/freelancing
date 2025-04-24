@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContextValue';
 import { getUserGigs } from '../../api/gigs';
 import { 
   DollarSign, Briefcase, Star, TrendingUp, 
-  ArrowRight, MessageCircle 
+  ArrowRight, MessageCircle, GraduationCap 
 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -153,6 +153,17 @@ const DashboardPage = () => {
             <div>
               <h3 className="font-semibold mb-1">Browse Marketplace</h3>
               <p className="text-sm text-gray-400">Find opportunities</p>
+            </div>
+          </Link>
+
+          <Link 
+            to="/learning-resources"
+            className="bg-white/5 rounded-xl p-6 hover:bg-white/10 transition-all border border-white/10 hover:border-white/20 flex items-center gap-4"
+          >
+            <GraduationCap className="w-8 h-8 text-green-500" />
+            <div>
+              <h3 className="font-semibold mb-1">Learning Resources</h3>
+              <p className="text-sm text-gray-400">Enhance your skills</p>
             </div>
           </Link>
         </div>

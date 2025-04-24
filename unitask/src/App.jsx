@@ -20,6 +20,7 @@ import GigDetails from "./components/gigs/GigDetails";
 import OrdersPage from './components/orders/OrdersPage';
 import OrderDetails from './components/orders/OrderDetails';
 import NotificationBanner from './components/NotificationBanner';
+import LearningResources from './components/learning/LearningResources';
 
 // Import the new OrderConfirmation component
 const OrderConfirmation = lazy(() => import('./components/orders/OrderConfirmation'));
@@ -132,6 +133,13 @@ const AppRoutes = () => {
       <Route path="/order-confirmation" element={
         <ProtectedRoute>
           <OrderConfirmation />
+        </ProtectedRoute>
+      } />
+
+      {/* Add the new route for learning resources */}
+      <Route path="/learning-resources" element={
+        <ProtectedRoute>
+          <LearningResources />
         </ProtectedRoute>
       } />
       

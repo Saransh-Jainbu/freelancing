@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown, MessageSquare, ShoppingBag } from 'lucide-react';
+import { Menu, X, LogOut, Grid, User, Briefcase, Settings, ChevronDown, MessageSquare, ShoppingBag, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContextValue';
 import { getProfile } from '../api/profile';
 
@@ -71,7 +71,8 @@ const Navigation = () => {
     { name: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
     { name: 'Orders', path: '/orders', icon: ShoppingBag },
     { name: 'Messages', path: '/chat', icon: MessageSquare },
-    { name: 'Profile', path: '/profile', icon: User }
+    { name: 'Profile', path: '/profile', icon: User },
+    { name: 'Learning Resources', path: '/learning-resources', icon: GraduationCap }
   ];
 
   const isActive = (path) => {
