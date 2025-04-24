@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { 
   BookOpen, 
   ExternalLink, 
@@ -120,8 +119,8 @@ const LearningResources = () => {
           setInternships(data);
           setLoading(false);
         })
-        .catch((err) => {
-          setError('Failed to fetch internships. Please try again later.');
+        .catch((error) => {
+          setError(`Failed to fetch internships: ${error.message}`);
           setLoading(false);
         });
     }

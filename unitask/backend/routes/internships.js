@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
               results_per_page: 10,
               what: query ? `${query} intern` : 'intern',
               where: location || '',
-              content-type: 'application/json'
+              'content-type': 'application/json'
             }
           }
         );

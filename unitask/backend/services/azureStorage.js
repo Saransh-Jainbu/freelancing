@@ -35,17 +35,20 @@ async function ensureContainerExists() {
 function generateSasToken(blobName) {
   const now = new Date();
   const expiryTime = new Date(now);
-  expiryTime.setMinutes(expiryTime.getMinutes() + 60); // Token valid for 60 minutes
+  expiryTime.setDate(expiryTime.getDate() + 7); // Extended token validity to 7 days
 
   const permissions = new BlobSASPermissions();
   permissions.read = true; // Only allow read access
 
+  // Make sure we're using the latest API version
   const sasToken = generateBlobSASQueryParameters({
     containerName,
     blobName,
     permissions,
     startsOn: now,
     expiresOn: expiryTime,
+    protocol: "https",
+    version: "2021-06-08", // Using a stable API version
   }, sharedKeyCredential).toString();
 
   return sasToken;

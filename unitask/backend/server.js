@@ -799,7 +799,9 @@ app.get('/api/profile/:userId', async (req, res) => {
 app.put('/api/profile/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    const { displayName, title, location, bio, hourlyRate, skills, languages } = req.body;
+    const { displayName, title, location, bio, hourlyRate, skills = [], languages = [] } = req.body;
+    
+    console.log(`[Profile API Debug] Received update request for user ${userId}:`, req.body);
     
     // Start a transaction
     await query('BEGIN');
@@ -807,43 +809,58 @@ app.put('/api/profile/:userId', async (req, res) => {
     // Update user's display name
     await query(
       'UPDATE users SET display_name = $1 WHERE id = $2',
-      [displayName, userId]
+      [displayName || '', userId]
     );
     
-    // Update profile
+    // Update profile with null handling
     await query(
       `UPDATE profiles 
        SET title = $1, location = $2, bio = $3, hourly_rate = $4, updated_at = CURRENT_TIMESTAMP
        WHERE user_id = $5`,
-      [title, location, bio, hourlyRate, userId]
+      [title || null, location || null, bio || null, hourlyRate || null, userId]
     );
     
     // Delete existing skills and add new ones
     await query('DELETE FROM skills WHERE user_id = $1', [userId]);
     
-    for (const skill of skills) {
-      if (skill.trim()) {
-        await query(
-          'INSERT INTO skills (user_id, skill_name) VALUES ($1, $2)',
-          [userId, skill.trim()]
-        );
+    if (Array.isArray(skills) && skills.length > 0) {
+      for (const skill of skills) {
+        if (skill && skill.trim()) {
+          await query(
+            'INSERT INTO skills (user_id, skill_name) VALUES ($1, $2)',
+            [userId, skill.trim()]
+          );
+        }
       }
     }
     
-    // Handle languages
-    if (languages && languages.length > 0) {
+    // Handle languages with improved error handling
+    if (Array.isArray(languages) && languages.length > 0) {
       await query('DELETE FROM languages WHERE user_id = $1', [userId]);
       
       for (const language of languages) {
-        const parts = language.split('(');
-        const languageName = parts[0].trim();
-        const proficiency = parts.length > 1 ? 
-          parts[1].replace(')', '').trim() : 'Fluent';
-        
-        await query(
-          'INSERT INTO languages (user_id, language_name, proficiency) VALUES ($1, $2, $3)',
-          [userId, languageName, proficiency]
-        );
+        try {
+          let languageName = language;
+          let proficiency = 'Fluent';
+          
+          // Check if language contains proficiency in parentheses
+          if (typeof language === 'string' && language.includes('(')) {
+            const parts = language.split('(');
+            languageName = parts[0].trim();
+            proficiency = parts.length > 1 ? 
+              parts[1].replace(')', '').trim() : 'Fluent';
+          }
+          
+          if (languageName) {
+            await query(
+              'INSERT INTO languages (user_id, language_name, proficiency) VALUES ($1, $2, $3)',
+              [userId, languageName, proficiency]
+            );
+          }
+        } catch (langError) {
+          console.error(`Error processing language entry ${language}:`, langError);
+          // Continue with the rest of the languages rather than failing the whole transaction
+        }
       }
     }
     
@@ -872,6 +889,11 @@ app.put('/api/profile/:userId', async (req, res) => {
       [userId]
     );
     
+    if (profileResult.rows.length === 0) {
+      await query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Profile not found after update' });
+    }
+    
     const profile = profileResult.rows[0];
     
     // Get skills
@@ -897,11 +919,13 @@ app.put('/api/profile/:userId', async (req, res) => {
       languages: updatedLanguages
     };
     
+    console.log(`[Profile API Debug] Profile updated successfully:`, profileData);
+    
     res.json({ success: true, profile: profileData });
   } catch (error) {
     await query('ROLLBACK');
     console.error('Profile update error:', error);
-    res.status(500).json({ success: false, message: 'Server error updating profile' });
+    res.status(500).json({ success: false, message: 'Server error updating profile: ' + error.message });
   }
 });
 
