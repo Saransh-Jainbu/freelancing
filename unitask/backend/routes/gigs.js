@@ -205,4 +205,63 @@ router.get('/:gigId/details', async (req, res) => {
   }
 });
 
+// Delete a gig
+router.delete('/:gigId', async (req, res) => {
+  try {
+    const { gigId } = req.params;
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+    
+    // Check if the gig exists and belongs to the user
+    const checkResult = await query(
+      'SELECT id FROM gigs WHERE id = $1 AND user_id = $2',
+      [gigId, userId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gig not found or you are not authorized to delete it'
+      });
+    }
+    
+    // Start transaction
+    await query('BEGIN');
+    
+    try {
+      // Delete any associated packages first (foreign key constraint)
+      await query('DELETE FROM gig_packages WHERE gig_id = $1', [gigId]);
+      
+      // Delete the gig
+      const result = await query(
+        'DELETE FROM gigs WHERE id = $1 AND user_id = $2 RETURNING id',
+        [gigId, userId]
+      );
+      
+      await query('COMMIT');
+      
+      res.json({
+        success: true,
+        deleted: gigId
+      });
+    } catch (error) {
+      await query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error deleting gig:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting gig',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
