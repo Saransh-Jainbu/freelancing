@@ -35,7 +35,7 @@ async function ensureContainerExists() {
 function generateSasToken(blobName) {
   const now = new Date();
   const expiryTime = new Date(now);
-  expiryTime.setDate(expiryTime.getDate() + 7); // Extended token validity to 7 days
+  expiryTime.setDate(expiryTime.getDate() + 30); // Extended token validity to 30 days for better reliability
 
   const permissions = new BlobSASPermissions();
   permissions.read = true; // Only allow read access
@@ -48,9 +48,10 @@ function generateSasToken(blobName) {
     startsOn: now,
     expiresOn: expiryTime,
     protocol: "https",
-    version: "2021-06-08", // Using a stable API version
+    version: "2021-06-08", // Using a stable API version that's known to work
   }, sharedKeyCredential).toString();
 
+  console.log(`[Azure] Generated SAS token for blob ${blobName} with expiry: ${expiryTime}`);
   return sasToken;
 }
 

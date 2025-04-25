@@ -78,7 +78,8 @@ export const deleteGig = async (gigId, userId) => {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to delete gig: ${response.status} ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to delete gig: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
