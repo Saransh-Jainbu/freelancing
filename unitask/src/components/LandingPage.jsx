@@ -101,16 +101,13 @@ const LandingPage = () => {
             <div className="hidden md:flex items-center gap-8">
               {/* Nav Links */}
               <div className="flex items-center gap-8 text-sm">
-                {['Services', 'About', 'Testimonials', 'Contact'].map((item) => (
-                  <a 
-                    key={item} 
-                    href="#" 
-                    className="relative group"
-                  >
-                    <span className="relative z-10 hover:text-purple-400 transition-colors duration-300">{item}</span>
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-purple-400 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-                  </a>
-                ))}
+                <a 
+                  href="#" 
+                  className="relative group"
+                >
+                  <span className="relative z-10 hover:text-purple-400 transition-colors duration-300">About</span>
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-purple-400 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+                </a>
               </div>
 
               {/* Desktop Auth Buttons */}
@@ -143,16 +140,13 @@ const LandingPage = () => {
             }`}
           >
             <div className="px-4 py-4 space-y-4">
-              {['Services', 'About', 'Testimonials', 'Contact'].map((item) => (
-                <a 
-                  key={item} 
-                  href="#" 
-                  className="block py-2 hover:text-purple-400 transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item}
-                </a>
-              ))}
+              <a 
+                href="#" 
+                className="block py-2 hover:text-purple-400 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                About
+              </a>
               <div className="pt-4 border-t border-white/5 space-y-3">
                 <Link to="/login" className="w-full py-2 px-4 rounded-full bg-white/5 hover:bg-white/10 transition-colors block text-center">
                   Log In
