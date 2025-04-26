@@ -32,7 +32,16 @@ export default defineConfig(({ command, mode }) => {
       outDir: 'dist',
       sourcemap: false, // Disable source maps to ensure no leaking of localhost URLs
       target: 'esnext',
+      // Ensure assets are properly copied
+      assetsDir: 'assets',
+      rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+        },
+      }
     },
+    // Ensure public directory is properly served
+    publicDir: 'public',
     css: {
       postcss: './postcss.config.cjs',
     }
